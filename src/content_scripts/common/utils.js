@@ -430,6 +430,7 @@ function getVisibleElements(filter) {
             }
         }
         var rect = e.getBoundingClientRect();
+        // if ( (rect.top <= window.innerHeight * 2) && (rect.bottom >= -window.innerHeight)
         if ( (rect.top <= window.innerHeight) && (rect.bottom >= 0)
             && (rect.left <= window.innerWidth) && (rect.right >= 0)
             && rect.height > 0
