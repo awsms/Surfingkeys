@@ -499,6 +499,7 @@ div.hint-scrollable {
         prefix = "";
         textFilter = "";
         shiftKey = false;
+        // if (self.observer) self.observer.disconnect();
         self.exit();
     }
 
@@ -622,6 +623,15 @@ div.hint-scrollable {
     };
 
     self.onScrollDone = resetHints;
+
+    // // Observe DOM changes to regenerate hints when new elements are added
+    // let debounceTimer;
+    // self.observer = new MutationObserver(() => {
+    //     if (Mode.getCurrent() === self) {
+    //         clearTimeout(debounceTimer);
+    //         debounceTimer = setTimeout(resetHints, 100);
+    //     }
+    // });
 
     initSKFunctionListener("hints", {
         scrollStarted: () => {
@@ -991,6 +1001,7 @@ div.hint-scrollable {
         if (found > (runtime.conf.hintExplicit ? 0 : 1)) {
             self.statusLine += " - " + (new Date().getTime() - start) + "ms / " + found;
             self.enter();
+            // self.observer.observe(document.body, { childList: true, subtree: true });
         } else {
             handleHint();
         }
