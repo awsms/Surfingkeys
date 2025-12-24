@@ -92,6 +92,10 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         _mapkey(normal, keys, annotation, jscode, options);
     }
 
+    function mapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
+        mapkey(prefix + keys, annotation, jscode, options);
+    }
+
     /**
      * Create a shortcut in visual mode to execute your own action.
      *
@@ -106,6 +110,10 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         _mapkey(visual, keys, annotation, jscode, options);
     }
 
+    function vmapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
+        vmapkey(prefix + keys, annotation, jscode, options);
+    }
+
     /**
      * Create a shortcut in insert mode to execute your own action.
      *
@@ -118,6 +126,10 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
      */
     function imapkey(keys, annotation, jscode, options) {
         _mapkey(insert, keys, annotation, jscode, options);
+    }
+
+    function imapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
+        imapkey(prefix + keys, annotation, jscode, options);
     }
 
     /**
@@ -148,6 +160,18 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
                 }
             }
         }
+    }
+
+    function remap(new_keystroke, old_keystroke, domain, new_annotation) {
+        if (new_keystroke === old_keystroke) {
+            return;
+        }
+        map(new_keystroke, old_keystroke, domain, new_annotation);
+        unmap(old_keystroke, domain);
+    }
+
+    function mapWithPrefix(prefix, keys, old_keystroke, domain, new_annotation) {
+        map(prefix + keys, old_keystroke, domain, new_annotation);
     }
 
     /**
@@ -203,6 +227,76 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
                 mode.map_node = _mappings;
             });
         }
+    }
+
+    /**
+     * Remap all mappings starting with `oldPrefix` to `newPrefix` in the given mode.
+     *
+     * @param {string} oldPrefix the prefix to replace.
+     * @param {string} newPrefix the prefix to move matching mappings to.
+     * @param {string} [modeName="normal"] the mode whose mappings should be updated, one of `normal`, `insert`, or `visual`.
+     *
+     * @example
+     * remapPrefix('c', ',');
+     */
+    function remapPrefix(oldPrefix, newPrefix, modeName = "normal") {
+        const modeLookup = { normal, insert, visual };
+        const targetMode = modeLookup[modeName];
+        if (!targetMode) {
+            throw `Invalid mode ${modeName}, expected one of ${Object.keys(modeLookup).join(", ")}`;
+        }
+        const oldKey = KeyboardUtils.encodeKeystroke(oldPrefix);
+        const newKey = KeyboardUtils.encodeKeystroke(newPrefix);
+        if (oldKey === newKey) {
+            return;
+        }
+        const words = targetMode.mappings.getWords();
+        words.filter(w => w.startsWith(oldKey) && w.length > oldKey.length).forEach((word) => {
+            const node = targetMode.mappings.find(word);
+            const suffix = word.slice(oldKey.length);
+            const newWord = newKey + suffix;
+            if (targetMode.mappings.find(newWord)) {
+                targetMode.mappings.remove(newWord);
+            }
+            targetMode.mappings.remove(word);
+            targetMode.mappings.add(newWord, Object.assign({}, node.meta));
+        });
+    }
+
+    /**
+     * Unmap all mappings starting with `prefix` in the given mode.
+     *
+     * @param {string} prefix the prefix whose mappings should be removed.
+     * @param {string} [moveToPrefix=null] if provided, matching mappings are moved to this prefix instead of being removed.
+     * @param {string} [modeName="normal"] the mode whose mappings should be updated, one of `normal`, `insert`, or `visual`.
+     *
+     * @example
+     * unmapPrefix('z');
+     *
+     * @example
+     * unmapPrefix('z', ',');
+     */
+    function unmapPrefix(prefix, moveToPrefix, modeName = "normal") {
+        const modeLookup = { normal, insert, visual };
+        const targetMode = modeLookup[modeName];
+        if (!targetMode) {
+            throw `Invalid mode ${modeName}, expected one of ${Object.keys(modeLookup).join(", ")}`;
+        }
+        const oldKey = KeyboardUtils.encodeKeystroke(prefix);
+        const moveKey = moveToPrefix ? KeyboardUtils.encodeKeystroke(moveToPrefix) : null;
+        const words = targetMode.mappings.getWords();
+        words.filter(w => w.startsWith(oldKey)).forEach((word) => {
+            const node = targetMode.mappings.find(word);
+            const suffix = word.slice(oldKey.length);
+            const newWord = moveKey ? (moveKey + suffix) : null;
+            if (newWord && targetMode.mappings.find(newWord)) {
+                targetMode.mappings.remove(newWord);
+            }
+            targetMode.mappings.remove(word);
+            if (newWord) {
+                targetMode.mappings.add(newWord, Object.assign({}, node.meta));
+            }
+        });
     }
 
     /**
@@ -416,8 +510,12 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         addSearchAlias,
         imap,
         map,
+        remap,
+        mapWithPrefix,
         lmap,
         vmap,
+        remapPrefix,
+        unmapPrefix,
         unmap,
         unmapAllExcept,
         iunmap,
@@ -458,14 +556,38 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
                 }, options);
             }
         },
+        mapkeyWithPrefix: (prefix, keys, annotation, options) => {
+            const fullKeys = prefix + keys;
+            if (options.codeHasParameter) {
+                mapkeyWithPrefix(prefix, keys, annotation, (key) => {
+                    dispatchSKEvent('user', ["callUserFunction", `normal:${fullKeys}`, key]);
+                }, options);
+            } else {
+                mapkeyWithPrefix(prefix, keys, annotation, () => {
+                    dispatchSKEvent('user', ["callUserFunction", `normal:${fullKeys}`]);
+                }, options);
+            }
+        },
         imapkey: (keys, annotation, options) => {
             imapkey(keys, annotation, () => {
                 dispatchSKEvent('user', ["callUserFunction", `insert:${keys}`]);
             }, options);
         },
+        imapkeyWithPrefix: (prefix, keys, annotation, options) => {
+            const fullKeys = prefix + keys;
+            imapkeyWithPrefix(prefix, keys, annotation, () => {
+                dispatchSKEvent('user', ["callUserFunction", `insert:${fullKeys}`]);
+            }, options);
+        },
         vmapkey: (keys, annotation, options) => {
             vmapkey(keys, annotation, () => {
                 dispatchSKEvent('user', ["callUserFunction", `visual:${keys}`]);
+            }, options);
+        },
+        vmapkeyWithPrefix: (prefix, keys, annotation, options) => {
+            const fullKeys = prefix + keys;
+            vmapkeyWithPrefix(prefix, keys, annotation, () => {
+                dispatchSKEvent('user', ["callUserFunction", `visual:${fullKeys}`]);
             }, options);
         },
         readText: browser.readText,
@@ -483,17 +605,24 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         getClickableElements,
         lmap,
         map,
+        remap,
+        mapWithPrefix,
         unmap,
         unmapAllExcept,
+        unmapPrefix,
+        remapPrefix,
         iunmap,
         vunmap,
         mapkey,
+        mapkeyWithPrefix,
         readText: browser.readText,
         removeSearchAlias,
         searchSelectedWith,
         tabOpenLink,
         vmap,
         vmapkey,
+        vmapkeyWithPrefix,
+        imapkeyWithPrefix,
         Clipboard: clipboard,
         Normal: {
             feedkeys: normal.feedkeys,

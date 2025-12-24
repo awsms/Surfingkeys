@@ -12,6 +12,13 @@
 *   [map][8]
     *   [Parameters][9]
     *   [Examples][10]
+*   [remap][118]
+*   [remapPrefix][119]
+    *   [Parameters][120]
+    *   [Examples][121]
+*   [unmapPrefix][122]
+    *   [Parameters][123]
+    *   [Examples][124]
 *   [unmap][11]
     *   [Parameters][12]
     *   [Examples][13]
@@ -170,6 +177,52 @@ Map a key sequence to another in normal mode.
 
 ```javascript
 map(';d', '<Ctrl-Alt-d>');
+```
+
+## remap
+
+Map a key sequence to another in normal mode and remove the old key sequence. Same parameters as `map`.
+
+Examples:
+
+```javascript
+remap(';h', '<Ctrl-h>');
+```
+
+## remapPrefix
+
+Remap all mappings starting with `oldPrefix` to `newPrefix` in the given mode.
+
+### Parameters
+
+*   `oldPrefix` **[string][107]** the prefix to replace.
+*   `newPrefix` **[string][107]** the prefix to move matching mappings to.
+*   `modeName` **[string][107]** the mode whose mappings should be updated, one of `normal`, `insert`, or `visual`. (optional, default `"normal"`)
+
+### Examples
+
+```javascript
+remapPrefix('c', ',');
+```
+
+## unmapPrefix
+
+Unmap all mappings starting with `prefix` in the given mode.
+
+### Parameters
+
+*   `prefix` **[string][107]** the prefix whose mappings should be removed.
+*   `moveToPrefix` **[string][107]** if provided, matching mappings are moved to this prefix instead of being removed. (optional, default `null`)
+*   `modeName` **[string][107]** the mode whose mappings should be updated, one of `normal`, `insert`, or `visual`. (optional, default `"normal"`)
+
+### Examples
+
+```javascript
+unmapPrefix('z');
+```
+
+```javascript
+unmapPrefix('z', ',');
 ```
 
 ## unmap
@@ -759,6 +812,10 @@ tabOpenLink('https://github.com/brookhong/Surfingkeys')
 [9]: #parameters-3
 
 [10]: #examples-1
+
+[118]: #remap
+
+[119]: #remapprefix
 
 [11]: #unmap
 

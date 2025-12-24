@@ -367,16 +367,16 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         hints.create("", hints.dispatchMouseClick, {multipleHits: true});
     });
     map('C', 'gf');
-    mapkey('<Ctrl-h>', '#1Mouse over elements.', function() {
-        hints.create("", (element, event) => {
-            if (chrome.surfingkeys) {
-                const r = element.getClientRects()[0];
-                chrome.surfingkeys.sendMouseEvent(2, Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2), 0);
-            } else {
-                hints.dispatchMouseClick(element, event);
-            }
-        }, {mouseEvents: ["mouseover"]});
-    });
+    // mapkey('<Ctrl-h>', '#1Mouse over elements.', function () {
+    //     hints.create("", (element, event) => {
+    //         if (chrome.surfingkeys) {
+    //             const r = element.getClientRects()[0];
+    //             chrome.surfingkeys.sendMouseEvent(2, Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2), 0);
+    //         } else {
+    //             hints.dispatchMouseClick(element, event);
+    //         }
+    //     }, { mouseEvents: ["mouseover"] });
+    // });
     mapkey('<Ctrl-j>', '#1Mouse out elements.', function() {
         hints.create("", hints.dispatchMouseClick, {mouseEvents: ["mouseout"]});
     });
