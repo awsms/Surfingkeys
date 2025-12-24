@@ -8,3 +8,5 @@ jsconfig.json
 src/content_scripts/safari.js
 *~
 .idea
+
+/*.patch
