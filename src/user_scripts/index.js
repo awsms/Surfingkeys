@@ -59,6 +59,15 @@ function addCommand(name, description, action) {
 function map(new_keystroke, old_keystroke, domain, new_annotation) {
     dispatchSKEvent('api', ['map', new_keystroke, old_keystroke, domain, new_annotation]);
 }
+function remap(new_keystroke, old_keystroke, domain, new_annotation) {
+    dispatchSKEvent('api', ['remap', new_keystroke, old_keystroke, domain, new_annotation]);
+}
+function mapWithPrefix(prefix, keys, old_keystroke, domain, new_annotation) {
+    dispatchSKEvent('api', ['mapWithPrefix', prefix, keys, old_keystroke, domain, new_annotation]);
+}
+function remapPrefix(oldPrefix, newPrefix, modeName = "normal") {
+    dispatchSKEvent('api', ['remapPrefix', oldPrefix, newPrefix, modeName]);
+}
 function imap(new_keystroke, old_keystroke, domain, new_annotation) {
     dispatchSKEvent('api', ['imap', new_keystroke, old_keystroke, domain, new_annotation]);
 }
@@ -67,6 +76,32 @@ function lmap(new_keystroke, old_keystroke, domain, new_annotation) {
 }
 function vmap(new_keystroke, old_keystroke, domain, new_annotation) {
     dispatchSKEvent('api', ['vmap', new_keystroke, old_keystroke, domain, new_annotation]);
+}
+function unmapPrefix(prefix, moveToPrefix, modeName = "normal") {
+    dispatchSKEvent('api', ['unmapPrefix', prefix, moveToPrefix, modeName]);
+}
+function mapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
+    if (!options || _isDomainApplicable(options.domain)) {
+        const opt = options || {};
+        const fullKeys = prefix + keys;
+        userDefinedFunctions[`normal:${fullKeys}`] = jscode;
+        opt.codeHasParameter = jscode.length;
+        dispatchSKEvent('api', ['mapkeyWithPrefix', prefix, keys, annotation, opt]);
+    }
+}
+function imapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
+    if (!options || _isDomainApplicable(options.domain)) {
+        const fullKeys = prefix + keys;
+        userDefinedFunctions[`insert:${fullKeys}`] = jscode;
+        dispatchSKEvent('api', ['imapkeyWithPrefix', prefix, keys, annotation, options]);
+    }
+}
+function vmapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
+    if (!options || _isDomainApplicable(options.domain)) {
+        const fullKeys = prefix + keys;
+        userDefinedFunctions[`visual:${fullKeys}`] = jscode;
+        dispatchSKEvent('api', ['vmapkeyWithPrefix', prefix, keys, annotation, options]);
+   }
 }
 
 const functionsToListSuggestions = {};
@@ -165,14 +200,21 @@ const api = {
     cmap,
     imap,
     imapkey,
+    imapkeyWithPrefix,
     isElementPartiallyInViewport,
     getBrowserName,
     getClickableElements,
     lmap,
     vmap,
     vmapkey,
+    vmapkeyWithPrefix,
     map,
+    remap,
+    mapWithPrefix,
+    unmapPrefix,
+    remapPrefix,
     mapkey,
+    mapkeyWithPrefix,
     unmap: (keystroke, domain) => {
         dispatchSKEvent('api', ['unmap', keystroke, domain]);
     },
