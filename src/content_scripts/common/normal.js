@@ -79,6 +79,7 @@ function createLurk(normal) {
             if (event.sk_stopPropagation) {
                 // keyup event also needs to be suppressed for the key whose keydown has been suppressed.
                 Mode.suppressKeyUp(event.keyCode);
+                Mode.suppressKeyPress(event.keyCode);
             }
         }
     });
@@ -236,6 +237,7 @@ function createNormal(insert) {
         if (event.sk_stopPropagation) {
             // keyup event also needs to be suppressed for the key whose keydown has been suppressed.
             Mode.suppressKeyUp(event.keyCode);
+            Mode.suppressKeyPress(event.keyCode);
         }
     });
     self.addEventListener('blur', function(event) {

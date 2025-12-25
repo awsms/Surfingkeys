@@ -278,6 +278,15 @@ body {
     padding-left: 32px;
     line-height: 22px;
 }
+#sk_usage .usage-entry {
+    border-radius: 4px;
+    margin: 2px 0;
+    padding: 2px 6px;
+}
+#sk_usage .usage-highlight {
+    background: #ffe7ba;
+    box-shadow: 0 0 0 2px #f6c564;
+}
 #sk_usage * {
     font-size: 10pt;
 }

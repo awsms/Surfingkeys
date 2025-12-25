@@ -477,6 +477,7 @@ div.hint-scrollable {
         // suppress future key handler since the event has been treated as a hint
         if (evt) {
             Mode.suppressKeyUp(evt.keyCode);
+            Mode.suppressKeyPress(evt.keyCode);
             evt.stopImmediatePropagation();
             evt.preventDefault();
         }
