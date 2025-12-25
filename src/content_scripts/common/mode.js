@@ -110,6 +110,12 @@ Mode.suppressKeyUp = function(keyCode) {
         keysNeedKeyupSuppressed.push(keyCode);
     }
 };
+var keysNeedKeypressSuppressed = [];
+Mode.suppressKeyPress = function(keyCode) {
+    if (keysNeedKeypressSuppressed.indexOf(keyCode) === -1) {
+        keysNeedKeypressSuppressed.push(keyCode);
+    }
+};
 
 function onAfterHandler(mode, event) {
     if (event.sk_stopPropagation) {
@@ -134,12 +140,17 @@ function handleStack(eventName, event, cb) {
 }
 
 let eventListenerBeats = 0;
+let _globalKeyInterceptor = null;
 var suppressScrollEvent = 0, _listenedEvents = {
     "sentinel": (event) => {
         eventListenerBeats ++;
     },
     "keydown": function (event) {
         event.sk_keyName = KeyboardUtils.getKeyChar(event);
+        if (_globalKeyInterceptor && _globalKeyInterceptor(event)) {
+            onAfterHandler(null, event);
+            return;
+        }
         if (mode_stack.length === 0 && window !== top) {
             // automatically boots iframe on demand
             dispatchSKEvent('iframeBoot');
@@ -159,6 +170,14 @@ var suppressScrollEvent = 0, _listenedEvents = {
                 keysNeedKeyupSuppressed.splice(i, 1);
             }
         });
+    },
+    "keypress": function(event) {
+        var i = keysNeedKeypressSuppressed.indexOf(event.keyCode);
+        if (i !== -1) {
+            event.stopImmediatePropagation();
+            event.preventDefault();
+            keysNeedKeypressSuppressed.splice(i, 1);
+        }
     },
     "scroll": function (event) {
         handleStack("scroll", event);
@@ -296,7 +315,9 @@ Mode.handleMapKey = function(event, onNoMatched) {
         this.map_node = this.map_node.find(key);
         if (!this.map_node) {
             onNoMatched && onNoMatched(last);
-            event.sk_suppressed = (last !== this.mappings);
+            if (!event.sk_suppressed) {
+                event.sk_suppressed = (last !== this.mappings);
+            }
             actionDone = Mode.finish(this);
         } else {
             if (this.map_node.meta) {
@@ -342,6 +363,10 @@ Mode.checkEventListener = (onMissing) => {
         init();
         onMissing();
     }
+};
+
+Mode.setGlobalKeyInterceptor = (fn) => {
+    _globalKeyInterceptor = fn;
 };
 
 export default Mode;
