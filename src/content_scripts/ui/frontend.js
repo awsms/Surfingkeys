@@ -17,6 +17,7 @@ import {
 import { RUNTIME, runtime } from '../common/runtime.js';
 import KeyboardUtils from '../common/keyboardUtils';
 import Mode from '../common/mode';
+import Trie from '../common/trie.js';
 import createClipboard from '../common/clipboard.js';
 import createInsert from '../common/insert.js';
 import createNormal from '../common/normal.js';
@@ -71,6 +72,13 @@ const Front = (function() {
 
     self.postMessage = function(args) {
         top.postMessage({surfingkeys_uihost_data: args}, self.topOrigin);
+    };
+
+    const usageNavigator = {
+        trie: null,
+        node: null,
+        active: false,
+        pendingTimer: null
     };
 
     var pressedHintKeys = "";
@@ -182,6 +190,7 @@ const Front = (function() {
     const _omnibar = document.getElementById('sk_omnibar');
     self.statusBar = document.getElementById('sk_status');
     const _usage = document.getElementById('sk_usage');
+    let _usageHighlight = null;
     const _popup = document.getElementById('sk_popup');
     const _editor = document.getElementById('sk_editor');
     const _nvim = document.getElementById('sk_nvim');
@@ -235,6 +244,10 @@ const Front = (function() {
             _display.style.display = "none";
             self.flush();
             _display.onHide && _display.onHide();
+            clearUsageHighlight();
+            if (_display === _usage) {
+                deactivateUsageNavigator();
+            }
             self.exit();
         }
     };
@@ -256,6 +269,133 @@ const Front = (function() {
         td.onHit = onHit;
         setDisplay(td, render);
         self.flush();
+    }
+
+    function clearUsageHighlight() {
+        if (_usageHighlight) {
+            _usageHighlight.classList.remove("usage-highlight");
+            _usageHighlight = null;
+        }
+    }
+    function clearUsagePending() {
+        if (usageNavigator.pendingTimer) {
+            clearTimeout(usageNavigator.pendingTimer);
+            usageNavigator.pendingTimer = null;
+        }
+    }
+    function resetUsageNavigator() {
+        clearUsagePending();
+        usageNavigator.node = usageNavigator.trie;
+    }
+    function buildUsageTrie() {
+        const trie = new Trie();
+        const mappings = [normal.mappings, visual.mappings, insert.mappings, omnibar.mappings];
+        const lurk = normal.getLurkMode && normal.getLurkMode();
+        if (lurk) {
+            mappings.unshift(lurk.mappings);
+        }
+        mappings.forEach((m) => {
+            m.getWords().forEach((word) => {
+                const meta = m.find(word).meta || { word };
+                trie.add(word, {
+                    word: meta.word || word,
+                    annotation: meta.annotation
+                });
+            });
+        });
+        Object.keys(Mode.specialKeys).forEach((specialKey) => {
+            Mode.specialKeys[specialKey].forEach((key) => {
+                const encoded = KeyboardUtils.encodeKeystroke(key);
+                trie.add(encoded, { word: encoded });
+            });
+        });
+        return trie;
+    }
+    function buildUsageTrieFromMetas(metas) {
+        const trie = new Trie();
+        metas.forEach((meta) => {
+            trie.add(meta.word, {
+                word: meta.word,
+                annotation: meta.annotation
+            });
+        });
+        getAnnotations(omnibar.mappings).forEach((meta) => {
+            trie.add(meta.word, {
+                word: meta.word,
+                annotation: meta.annotation
+            });
+        });
+        return trie;
+    }
+    function activateUsageNavigator(metas) {
+        usageNavigator.trie = metas ? buildUsageTrieFromMetas(metas) : buildUsageTrie();
+        resetUsageNavigator();
+        usageNavigator.active = true;
+        Mode.setGlobalKeyInterceptor(handleUsageKey);
+    }
+    function deactivateUsageNavigator() {
+        usageNavigator.active = false;
+        usageNavigator.trie = null;
+        usageNavigator.node = null;
+        clearUsagePending();
+        Mode.setGlobalKeyInterceptor(null);
+    }
+    function highlightUsage(keystroke) {
+        if (_usage.style.display === "none" || !keystroke) {
+            return;
+        }
+        const selector = `[data-keystroke="${(typeof CSS !== "undefined" && CSS.escape) ? CSS.escape(keystroke) : keystroke.replace(/["\\\\]/g, '\\\\$&')}"]`;
+        const target = _usage.querySelector(selector);
+        if (!target) {
+            return;
+        }
+        if (_usageHighlight && _usageHighlight !== target) {
+            _usageHighlight.classList.remove("usage-highlight");
+        }
+        _usageHighlight = target;
+        _usageHighlight.classList.add("usage-highlight");
+        _usageHighlight.scrollIntoView({block: "center", behavior: "smooth"});
+    }
+    function handleUsageKey(event) {
+        if (!usageNavigator.active || !usageNavigator.trie) {
+            return false;
+        }
+        const key = event.sk_keyName;
+        if (!key) {
+            return false;
+        }
+        if (Mode.isSpecialKeyOf("<Esc>", key) || key === "?") {
+            self.hidePopup();
+            event.sk_stopPropagation = true;
+            event.preventDefault();
+            return true;
+        }
+        clearUsagePending();
+        let nextNode = usageNavigator.node && usageNavigator.node[key];
+        if (!nextNode) {
+            nextNode = usageNavigator.trie[key];
+        }
+        if (!nextNode) {
+            usageNavigator.node = usageNavigator.trie;
+            return false;
+        }
+        event.sk_stopPropagation = true;
+        event.sk_suppressed = true;
+        event.preventDefault();
+        usageNavigator.node = nextNode;
+        if (nextNode.meta) {
+            const hasChildren = Object.keys(nextNode).some((childKey) => childKey.length === 1);
+            if (hasChildren) {
+                usageNavigator.pendingTimer = setTimeout(() => {
+                    highlightUsage(nextNode.meta.word);
+                    resetUsageNavigator();
+                }, 250);
+            } else {
+                highlightUsage(nextNode.meta.word);
+                resetUsageNavigator();
+            }
+        }
+        return true;
     }
 
     function renderTabTitles(container, tabs) {
@@ -412,7 +552,7 @@ const Front = (function() {
             metas.forEach(function(meta) {
                 const w = KeyboardUtils.decodeKeystroke(meta.word);
                 const annotation = localizeAnnotation(locale, meta.annotation);
-                const item = `<div><span class=kbd-span><kbd>${htmlEncode(w)}</kbd></span><span class=annotation>${annotation}</span></div>`;
+                const item = `<div class="usage-entry" data-keystroke="${htmlEncode(meta.word)}"><span class=kbd-span><kbd>${htmlEncode(w)}</kbd></span><span class=annotation>${annotation}</span></div>`;
                 help_groups[meta.feature_group].push(item);
             });
             help_groups = help_groups.map(function(g, i) {
@@ -427,11 +567,11 @@ const Front = (function() {
             cb(help_groups);
         });
     }
-
     _actions['showUsage'] = function(message) {
         showElement(_usage, () => {
             buildUsage(message.metas, function(usage) {
                 setSanitizedContent(_usage, usage);
+                activateUsageNavigator(message.metas);
             });
         });
     };
