@@ -1255,6 +1255,7 @@ function start(browser) {
                         allFrames: true,
                         id: userScriptId,
                         matches: ['*://*/*', 'file:///*'],
+                        runAt: "document_start",
                         js: [{code}]
                     }], invokeCallback);
                 };
