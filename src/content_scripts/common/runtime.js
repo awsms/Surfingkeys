@@ -99,7 +99,8 @@ const runtime = (function() {
             caretViewport: null,
             mouseSelectToQuery: [],
             useNeovim: false,
-            useLocalMarkdownAPI: true
+            useLocalMarkdownAPI: true,
+            tsmExtensionId: "aajlcoiaogpknhgninhopncaldipjdnp"
         },
     }, _handlers = {};
 
