@@ -448,6 +448,23 @@ function start(browser) {
         }
         sendResponse(result);
     }
+    function _sendTSMMessage(message, sendResponse, payload) {
+        if (!message.tsmId) {
+            _response(message, sendResponse, { ok: false, error: "missingExtensionId" });
+            return;
+        }
+        try {
+            chrome.runtime.sendMessage(message.tsmId, payload, function(response) {
+                if (chrome.runtime.lastError) {
+                    _response(message, sendResponse, { ok: false, error: chrome.runtime.lastError.message });
+                    return;
+                }
+                _response(message, sendResponse, response || { ok: false, error: "noResponse" });
+            });
+        } catch (e) {
+            _response(message, sendResponse, { ok: false, error: e.toString() });
+        }
+    }
     function handleMessage(_message, _sender, _sendResponse) {
         if (self.hasOwnProperty(_message.action)) {
             var result = self[_message.action](_message, _sender, _sendResponse);
@@ -1138,6 +1155,22 @@ function start(browser) {
                 history: tree
             });
         }, message.sortByMostUsed);
+    };
+    self.getTSMUserSessions = function(message, sender, sendResponse) {
+        _sendTSMMessage(message, sendResponse, { message: "tsm.getUserSessions" });
+    };
+    self.getTSMUserSessionTabs = function(message, sender, sendResponse) {
+        if (!message.sessionId) {
+            _response(message, sendResponse, { ok: false, error: "missingSessionId" });
+            return;
+        }
+        _sendTSMMessage(message, sendResponse, {
+            message: "tsm.getUserSessionTabs",
+            sessionId: message.sessionId
+        });
+    };
+    self.getTSMAllUserSessionTabs = function(message, sender, sendResponse) {
+        _sendTSMMessage(message, sendResponse, { message: "tsm.getAllUserSessionTabs" });
     };
     self.addHistories = function(message, sender, sendResponse) {
         message.history.forEach(h => {
