@@ -728,6 +728,9 @@ function createOmnibar(front, clipboard) {
             });
         });
     }));
+    self.addHandler('TSMAllTabs', OpenTSMTabs(self));
+    self.addHandler('TSMSessions', OpenTSMSessions(self, front));
+    self.addHandler('TSMSessionTabs', OpenTSMSessionTabs(self));
     self.addHandler('URLs', OpenURLs(separatorHtml, self, () => {
         return new Promise((resolve, reject) => {
             RUNTIME('getTabs', {
@@ -1073,6 +1076,145 @@ function OpenURLs(prompt, omnibar, queryFn) {
                 });
             }
             omnibar.listURLs(historyItems, false);
+        });
+    };
+    return self;
+}
+
+function fetchTSMData(action, args) {
+    return new Promise((resolve) => {
+        const payload = Object.assign({ tsmId: runtime.conf.tsmExtensionId }, args);
+        RUNTIME(action, payload, function(response) {
+            if (!response || !response.ok) {
+                const err = response && response.error ? response.error : "noResponse";
+                showBanner(`TSM: ${err}`);
+                resolve([]);
+                return;
+            }
+            resolve(response.data || []);
+        });
+    });
+}
+
+function filterTSMSessions(sessions, query, caseSensitive) {
+    if (!query) {
+        return sessions;
+    }
+    const needle = caseSensitive ? query : query.toLowerCase();
+    return sessions.filter((session) => {
+        const tags = Array.isArray(session.tag) ? session.tag.join(" ") : (session.tag || "");
+        const haystack = `${session.name || ""} ${tags}`.trim();
+        return caseSensitive
+            ? haystack.includes(needle)
+            : haystack.toLowerCase().includes(needle);
+    });
+}
+
+function mapTSMTabs(tabs) {
+    return tabs.map((tab) => {
+        const sessionName = tab.sessionName || "Session";
+        const title = tab.title || tab.url || "";
+        return {
+            title: `${title} — ${sessionName}`,
+            url: tab.url,
+            favIconUrl: tab.favIconUrl
+        };
+    });
+}
+
+function OpenTSMTabs(omnibar) {
+    var self = {
+        prompt: `TSM tabs${separatorHtml}`
+    };
+    self.getResults = function() {
+        omnibar.cachedPromise = fetchTSMData('getTSMAllUserSessionTabs', {});
+    };
+    self.onOpen = function() {
+        self.getResults();
+        self.onInput();
+    };
+    self.onInput = function() {
+        omnibar.cachedPromise.then(function(cached) {
+            const mapped = mapTSMTabs(cached);
+            const filtered = filterByTitleOrUrl(mapped, omnibar.input.value, runtime.getCaseSensitive(omnibar.input.value));
+            omnibar.listURLs(filtered, false);
+        });
+    };
+    return self;
+}
+
+function OpenTSMSessions(omnibar, front) {
+    var self = {
+        prompt: `TSM sessions${separatorHtml}`,
+        focusFirstCandidate: true
+    };
+    self.getResults = function() {
+        omnibar.cachedPromise = fetchTSMData('getTSMUserSessions', {});
+    };
+    self.onOpen = function() {
+        self.getResults();
+        self.onInput();
+    };
+    self.onInput = function() {
+        omnibar.cachedPromise.then(function(cached) {
+            const query = omnibar.input.value;
+            const caseSensitive = runtime.getCaseSensitive(query);
+            const filtered = filterTSMSessions(cached, query, caseSensitive);
+            omnibar.listResults(filtered, function(session) {
+                const name = htmlEncode(session.name || "Untitled session");
+                const tags = Array.isArray(session.tag) ? session.tag.join(", ") : (session.tag || "");
+                const tabsNumber = session.tabsNumber !== undefined ? `${session.tabsNumber} tabs` : "";
+                const windowsNumber = session.windowsNumber !== undefined ? `${session.windowsNumber} windows` : "";
+                const lastEdited = session.lastEditedTime ? `edited ${timeStampString(session.lastEditedTime)}` : "";
+                const meta = [tags && `#${htmlEncode(tags)}`, tabsNumber, windowsNumber, lastEdited].filter(Boolean).join(" · ");
+                const li = createElementWithContent(
+                    'li',
+                    `<div class="title">${name}</div><div class="url">${meta}</div>`
+                );
+                li.sessionId = session.id;
+                li.sessionName = session.name || "Session";
+                return li;
+            });
+        });
+    };
+    self.onEnter = function() {
+        var fi = omnibar.resultsDiv.querySelector('li.focused');
+        if (fi && fi.sessionId !== undefined) {
+            const sessionId = fi.sessionId;
+            const sessionName = fi.sessionName;
+            // Open after current omnibar closes to avoid it being hidden immediately.
+            setTimeout(() => {
+                front.openOmnibar({
+                    type: "TSMSessionTabs",
+                    extra: {
+                        sessionId,
+                        sessionName
+                    }
+                });
+            }, 0);
+            return true;
+        }
+        return false;
+    };
+    return self;
+}
+
+function OpenTSMSessionTabs(omnibar) {
+    var self = {
+        prompt: `TSM session tabs${separatorHtml}`
+    };
+    self.onOpen = function(args) {
+        if (args && args.sessionName) {
+            self.prompt = `TSM session: ${htmlEncode(args.sessionName)}${separatorHtml}`;
+        }
+        omnibar.cachedPromise = fetchTSMData('getTSMUserSessionTabs', { sessionId: args && args.sessionId });
+        self.onInput();
+    };
+    self.onInput = function() {
+        omnibar.cachedPromise.then(function(cached) {
+            const mapped = mapTSMTabs(cached);
+            const filtered = filterByTitleOrUrl(mapped, omnibar.input.value, runtime.getCaseSensitive(omnibar.input.value));
+            omnibar.listURLs(filtered, false);
         });
     };
     return self;
