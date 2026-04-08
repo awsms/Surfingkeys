@@ -13,13 +13,14 @@ document.addEventListener("surfingkeys:defaultSettingsLoaded", function(evt) {
     const { normal, api } = evt.detail;
     const {
         mapkey,
+        mapkeyWithPrefix,
         Clipboard,
         Front,
     } = api;
 
     var desc, content;
 
-    mapkey(';h', '#99Toggle this section', function() {
+    mapkeyWithPrefix(";", "h", '#99Toggle this section', function() {
         if (desc.style.display !== "none") {
             content.style.height = "100vh";
             desc.style.display = "none";
@@ -68,16 +69,16 @@ document.addEventListener("surfingkeys:defaultSettingsLoaded", function(evt) {
         }
     }
 
-    mapkey('sm', '#99Edit markdown source', function() {
+    mapkeyWithPrefix("s", "m", '#99Edit markdown source', function() {
         Front.showEditor(_source, previewMarkdown, 'markdown');
     });
 
-    mapkey(';s', '#99Switch markdown parser', function() {
+    mapkeyWithPrefix(";", "s", '#99Switch markdown parser', function() {
         runtime.conf.useLocalMarkdownAPI = !runtime.conf.useLocalMarkdownAPI;
         previewMarkdown(_source);
     });
 
-    mapkey('cc', '#99Copy generated html code', function() {
+    mapkeyWithPrefix("c", "c", '#99Copy generated html code', function() {
         Clipboard.write(markdownBody.innerHTML);
     });
 
@@ -108,7 +109,7 @@ document.addEventListener("surfingkeys:defaultSettingsLoaded", function(evt) {
         previewMarkdownFile();
     };
 
-    mapkey('of', '#99Open local file.', function() {
+    mapkeyWithPrefix("o", "f", '#99Open local file.', function() {
         inputFileDiv.click();
     });
 

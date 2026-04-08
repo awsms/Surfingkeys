@@ -21,19 +21,22 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         addSearchAlias,
         cmap,
         map,
+        mapWithPrefix,
         mapkey,
+        mapkeyWithPrefix,
         imapkey,
         readText,
         vmapkey,
+        vmapkeyWithPrefix,
         searchSelectedWith,
     } = api;
 
-    mapkey('[[', '#1Click on the previous link on current page', hints.previousPage);
-    mapkey(']]', '#1Click on the next link on current page', hints.nextPage);
+    mapkeyWithPrefix("[", "[", '#1Click on the previous link on current page', hints.previousPage);
+    mapkeyWithPrefix("]", "]", '#1Click on the next link on current page', hints.nextPage);
     mapkey('T', '#3Choose a tab', function() {
         front.chooseTab();
     });
-    mapkey(';G', '#3Group this tab', function() {
+    mapkeyWithPrefix(";", "G", '#3Group this tab', function() {
         front.groupTab();
     });
     mapkey('?', '#0Show usage', function() {
@@ -57,7 +60,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         imapkey('<Ctrl-Alt-i>', '#15Open neovim for current input', function() {
             openVim(true);
         });
-        mapkey(';s', 'Toggle PDF viewer from SurfingKeys', function() {
+        mapkeyWithPrefix(";", "s", 'Toggle PDF viewer from SurfingKeys', function() {
             var pdfUrl = window.location.href;
             if (pdfUrl.indexOf(chrome.runtime.getURL("/pages/pdf_viewer.html")) === 0) {
                 const filePos = window.location.search.indexOf("=") + 1;
@@ -96,13 +99,13 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         });
     }
 
-    mapkey(";ql", '#0Show last action', function() {
+    mapkeyWithPrefix(";", "ql", '#0Show last action', function() {
         showPopup(htmlEncode(runtime.conf.lastKeys.map(function(k) {
             return KeyboardUtils.decodeKeystroke(k);
         }).join(' → ')));
     }, {repeatIgnore: true});
 
-    mapkey('gi', '#1Go to the first edit box', function() {
+    mapkeyWithPrefix("g", "i", '#1Go to the first edit box', function() {
         hints.createInputLayer();
     });
     mapkey('i', '#1Go to edit box', function() {
@@ -117,15 +120,15 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         hints.create(getLargeElements(), (e) => { }, { regionalHints: true });
     });
 
-    mapkey('zv', '#9Enter visual mode, and select whole element', function() {
+    mapkeyWithPrefix("z", "v", '#9Enter visual mode, and select whole element', function() {
         visual.toggle("z");
     });
-    mapkey('yv', '#7Yank text of an element', function() {
+    mapkeyWithPrefix("y", "v", '#7Yank text of an element', function() {
         hints.create(runtime.conf.textAnchorPat, function (element) {
             clipboard.write(element[1] === 0 ? element[0].data.trim() : element[2].trim());
         });
     });
-    mapkey('ymv', '#7Yank text of multiple elements', function() {
+    mapkeyWithPrefix("y", "mv", '#7Yank text of multiple elements', function() {
         var textToYank = [];
         hints.create(runtime.conf.textAnchorPat, function (element) {
             textToYank.push(element[1] === 0 ? element[0].data.trim() : element[2].trim());
@@ -176,7 +179,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         }
     });
 
-    mapkey('yg', '#7Capture current page', function() {
+    mapkeyWithPrefix("y", "g", '#7Capture current page', function() {
         front.toggleStatus(false);
         setTimeout(function() {
             RUNTIME('captureVisibleTab', null, function(response) {
@@ -186,7 +189,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         }, 500);
     });
 
-    mapkey('gu', '#4Go up one path in the URL', function() {
+    mapkeyWithPrefix("g", "u", '#4Go up one path in the URL', function() {
         var pathname = location.pathname;
         if (pathname.length > 1) {
             pathname = pathname.endsWith('/') ? pathname.substr(0, pathname.length - 1) : pathname;
@@ -205,11 +208,11 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         window.location.href = location.origin + pathname;
     });
 
-    mapkey(';m', '#1mouse out last element', function() {
+    mapkeyWithPrefix(";", "m", '#1mouse out last element', function() {
         hints.mouseoutLastElement();
     });
 
-    mapkey(';pp', '#7Paste html on current page', function() {
+    mapkeyWithPrefix(";", "pp", '#7Paste html on current page', function() {
         clipboard.read(function(response) {
             document.documentElement.removeAttributes();
             document.body.removeAttributes();
@@ -225,7 +228,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             tabOpenLink("https://translate.google.com/translate?js=n&sl=auto&tl=zh-CN&u=" + window.location.href);
         }
     }
-    mapkey(';t', 'Translate selected text with google', () => {
+    mapkeyWithPrefix(";", "t", 'Translate selected text with google', () => {
         if (chrome.surfingkeys) {
             chrome.surfingkeys.translateCurrentPage();
         } else {
@@ -261,9 +264,29 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         }
     }, {repeatIgnore: true});
 
-    mapkey("f", '#1Open a link, press SHIFT to flip overlapped hints, hold SPACE to hide hints', function() {
-        hints.create("", hints.dispatchMouseClick);
-    }, {repeatIgnore: true});
+    // mapkey('f', '#1Open a link, press SHIFT to flip overlapped hints, hold SPACE to hide hints', function () {
+    //     hints.create("", hints.dispatchMouseClick);
+    // }, { repeatIgnore: true });
+
+    let linkHintsActive = false;
+    const resetLinkHintsActive = () => {
+        linkHintsActive = false;
+    };
+    const originalHintsOnExit = hints.onExit;
+    hints.onExit = function (...args) {
+        originalHintsOnExit && originalHintsOnExit.apply(this, args);
+        resetLinkHintsActive();
+    };
+
+    mapkey('e', '#1Open a link, press SHIFT to flip overlapped hints, hold SPACE to hide hints', function () {
+        if (linkHintsActive) {
+            resetLinkHintsActive();
+            api.Normal.feedkeys('<Esc>');
+            return;
+        }
+        linkHintsActive = true;
+        hints.create("", hints.dispatchMouseClick, { multipleHits: false, tabbed: true });
+    }, { repeatIgnore: true });
 
     mapkey("v", '#9Toggle visual mode', function() {
         visual.toggle();
@@ -277,7 +300,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         visual.next(true);
     }, {repeatIgnore: true});
 
-    mapkey(";fs", '#1Display hints to focus scrollable elements', function() {
+    mapkeyWithPrefix(";", "fs", '#1Display hints to focus scrollable elements', function() {
         hints.create(normal.refreshScrollableElements(), hints.dispatchMouseClick);
     });
 
@@ -310,7 +333,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         return sentence.replace(/\n/g, '');
     }
 
-    mapkey("cq", '#7Query word with Hints', function() {
+    mapkeyWithPrefix("c", "q", '#7Query word with Hints', function() {
         hints.create(runtime.conf.textAnchorPat, function (element) {
             var word = element[2].trim().replace(/[^A-z].*$/, "");
             var b = getTextNodePos(element[0], element[1], element[2].length);
@@ -326,44 +349,44 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
     });
 
 
-    map('g0', ':feedkeys 99E', 0, "#3Go to the first tab");
-    map('g$', ':feedkeys 99R', 0, "#3Go to the last tab");
-    mapkey('zr', '#3zoom reset', function() {
+    mapWithPrefix("g", "0", ':feedkeys 99E', 0, "#3Go to the first tab");
+    mapWithPrefix("g", "$", ':feedkeys 99R', 0, "#3Go to the last tab");
+    mapkeyWithPrefix("z", "r", '#3zoom reset', function() {
         RUNTIME('setZoom', {
             zoomFactor: 0
         });
     });
-    mapkey('zi', '#3zoom in', function() {
+    mapkeyWithPrefix("z", "i", '#3zoom in', function() {
         RUNTIME('setZoom', {
             zoomFactor: 0.1
         });
     });
-    mapkey('zo', '#3zoom out', function() {
+    mapkeyWithPrefix("z", "o", '#3zoom out', function() {
         RUNTIME('setZoom', {
             zoomFactor: -0.1
         });
     });
 
-    map('ZQ', ':quit');
-    mapkey('ZZ', '#5Save session and quit', function() {
+    mapWithPrefix("Z", "Q", ':quit');
+    mapkeyWithPrefix("Z", "Z", '#5Save session and quit', function() {
         RUNTIME('createSession', {
             name: 'LAST',
             quitAfterSaved: true
         });
     });
-    mapkey('ZR', '#5Restore last session', function() {
+    mapkeyWithPrefix("Z", "R", '#5Restore last session', function() {
         RUNTIME('openSession', {
             name: 'LAST'
         });
     });
     map('u', 'e');
-    mapkey('af', '#1Open a link in active new tab', function() {
+    mapkeyWithPrefix("a", "f", '#1Open a link in active new tab', function() {
         hints.create("", hints.dispatchMouseClick, {tabbed: true, active: true});
     });
-    mapkey('gf', '#1Open a link in non-active new tab', function() {
+    mapkeyWithPrefix("g", "f", '#1Open a link in non-active new tab', function() {
         hints.create("", hints.dispatchMouseClick, {tabbed: true, active: false});
     });
-    mapkey('cf', '#1Open multiple links in a new tab', function() {
+    mapkeyWithPrefix("c", "f", '#1Open multiple links in a new tab', function() {
         hints.create("", hints.dispatchMouseClick, {multipleHits: true});
     });
     map('C', 'gf');
@@ -380,12 +403,12 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
     mapkey('<Ctrl-j>', '#1Mouse out elements.', function() {
         hints.create("", hints.dispatchMouseClick, {mouseEvents: ["mouseout"]});
     });
-    mapkey('ya', '#7Copy a link URL to the clipboard', function() {
+    mapkeyWithPrefix("y", "a", '#7Copy a link URL to the clipboard', function() {
         hints.create('*[href]', function(element) {
             clipboard.write(element.href);
         });
     });
-    mapkey('yma', '#7Copy multiple link URLs to the clipboard', function() {
+    mapkeyWithPrefix("y", "ma", '#7Copy multiple link URLs to the clipboard', function() {
         var linksToYank = [];
         hints.create('*[href]', function(element) {
             linksToYank.push(element.href);
@@ -402,7 +425,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         });
         return tds;
     }
-    mapkey('yc', '#7Copy a column of a table', function() {
+    mapkeyWithPrefix("y", "c", '#7Copy a column of a table', function() {
         hints.create(getTableColumnHeads(), function(element) {
             var column = Array.from(element.closest("table").querySelectorAll("tr")).map(function(tr) {
                 return tr.children.length > element.cellIndex ? tr.children[element.cellIndex].innerText : "";
@@ -410,7 +433,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             clipboard.write(column.join("\n"));
         });
     });
-    mapkey('ymc', '#7Copy multiple columns of a table', function() {
+    mapkeyWithPrefix("y", "mc", '#7Copy multiple columns of a table', function() {
         var rows = null;
         hints.create(getTableColumnHeads(), function(element) {
             var column = Array.from(element.closest("table").querySelectorAll("tr")).map(function(tr) {
@@ -426,7 +449,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             clipboard.write(rows.join("\n"));
         }, {multipleHits: true});
     });
-    mapkey('yq', '#7Copy pre text', function() {
+    mapkeyWithPrefix("y", "q", '#7Copy pre text', function() {
         hints.create("pre", function(element) {
             clipboard.write(element.innerText);
         });
@@ -453,13 +476,13 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
     mapkey('<Ctrl-6>', '#4Go to last used tab', function() {
         RUNTIME("goToLastTab");
     });
-    mapkey('gT', '#4Go to first activated tab', function() {
+    mapkeyWithPrefix("g", "T", '#4Go to first activated tab', function() {
         RUNTIME("historyTab", {index: 0});
     }, {repeatIgnore: true});
-    mapkey('gt', '#4Go to last activated tab', function() {
+    mapkeyWithPrefix("g", "t", '#4Go to last activated tab', function() {
         RUNTIME("historyTab", {index: -1});
     }, {repeatIgnore: true});
-    mapkey('gp', '#4Go to the playing tab', function() {
+    mapkeyWithPrefix("g", "p", '#4Go to the playing tab', function() {
         RUNTIME('getTabs', { queryInfo: {audible: true}}, response => {
             if (response.tabs?.at(0)) {
                 const tab = response.tabs[0]
@@ -473,13 +496,13 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
     mapkey('S', '#4Go back in history', function() {
         history.go(-1);
     }, {repeatIgnore: true});
-    mapkey('D', '#4Go forward in history', function() {
-        history.go(1);
-    }, {repeatIgnore: true});
+    // mapkey('D', '#4Go forward in history', function () {
+    //     history.go(1);
+    // }, { repeatIgnore: true });
     mapkey('r', '#4Reload the page', function() {
         RUNTIME("reloadTab", { nocache: false });
     });
-    mapkey('oi', '#8Open incognito window', function() {
+    mapkeyWithPrefix("o", "i", '#8Open incognito window', function() {
         RUNTIME('openIncognito', {
             url: window.location.href
         });
@@ -488,7 +511,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
     mapkey('H', '#8Open opened URL in current tab', function() {
         front.openOmnibar({type: "TabURLs"});
     });
-    mapkey('om', '#8Open URL from vim-like marks', function() {
+    mapkeyWithPrefix("o", "m", '#8Open URL from vim-like marks', function() {
         front.openOmnibar({type: "VIMarks"});
     });
     mapkey(':', '#8Open commands', function() {
@@ -503,7 +526,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             system: sel
         }});
     });
-    mapkey('yi', '#7Yank text of an input', function() {
+    mapkeyWithPrefix("y", "i", '#7Yank text of an input', function() {
         hints.create("input, textarea, select", function(element) {
             clipboard.write(element.value);
         });
@@ -511,10 +534,10 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
     mapkey('x', '#3Close current tab', function() {
         RUNTIME("closeTab");
     });
-    mapkey(';w', '#2Focus top window', function() {
+    mapkeyWithPrefix(";", "w", '#2Focus top window', function() {
         top.focus();
     });
-    mapkey('cc', '#7Open selected link or link from clipboard', function() {
+    mapkeyWithPrefix("c", "c", '#7Open selected link or link from clipboard', function() {
         if (window.getSelection().toString()) {
             tabOpenLink(window.getSelection().toString());
         } else {
@@ -523,34 +546,34 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             });
         }
     });
-    mapkey(';cq', '#7Clear all URLs in queue to be opened', function() {
+    mapkeyWithPrefix(";", "cq", '#7Clear all URLs in queue to be opened', function() {
         RUNTIME('clearQueueURLs');
     });
-    mapkey('ys', "#7Copy current page's source", function() {
+    mapkeyWithPrefix("y", "s", "#7Copy current page's source", function() {
         var aa = document.documentElement.cloneNode(true);
         clipboard.write(aa.outerHTML);
     });
-    mapkey('yj', "#7Copy current settings", function() {
+    mapkeyWithPrefix("y", "j", "#7Copy current settings", function() {
         RUNTIME('getSettings', {
             key: "RAW"
         }, function(response) {
             clipboard.write(JSON.stringify(response.settings, null, 4));
         });
     });
-    mapkey(';pj', "#7Restore settings data from clipboard", function() {
+    mapkeyWithPrefix(";", "pj", "#7Restore settings data from clipboard", function() {
         clipboard.read(function(response) {
             RUNTIME('updateSettings', {
                 settings: JSON.parse(response.data.trim())
             });
         });
     });
-    mapkey('yt', '#3Duplicate current tab', function() {
+    mapkeyWithPrefix("y", "t", '#3Duplicate current tab', function() {
         RUNTIME("duplicateTab");
     });
-    mapkey('yT', '#3Duplicate current tab in background', function() {
+    mapkeyWithPrefix("y", "T", '#3Duplicate current tab in background', function() {
         RUNTIME("duplicateTab", {active: false});
     });
-    mapkey('yy', "#7Copy current page's URL", function() {
+    mapkeyWithPrefix("y", "y", "#7Copy current page's URL", function() {
         if (RUNTIME.repeats > 1) {
             const num = RUNTIME.repeats;
             RUNTIME('getTabs', null, function (response) {
@@ -568,19 +591,19 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             clipboard.write(url);
         }
     });
-    mapkey('yY', "#7Copy all tabs's url", function() {
+    mapkeyWithPrefix("y", "Y", "#7Copy all tabs's url", function() {
         RUNTIME('getTabs', null, function (response) {
             clipboard.write(response.tabs.map(tab => tab.url).join('\n'));
         });
     });
-    mapkey('yh', "#7Copy current page's host", function() {
+    mapkeyWithPrefix("y", "h", "#7Copy current page's host", function() {
         var url = new URL(window.location.href);
         clipboard.write(url.host);
     });
-    mapkey('yl', "#7Copy current page's title", function() {
+    mapkeyWithPrefix("y", "l", "#7Copy current page's title", function() {
         clipboard.write(document.title);
     });
-    mapkey('yQ', '#7Copy all query history of OmniQuery.', function() {
+    mapkeyWithPrefix("y", "Q", '#7Copy all query history of OmniQuery.', function() {
         RUNTIME('getSettings', {
             key: 'OmniQueryHistory'
         }, function(response) {
@@ -620,14 +643,14 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
     function generateFormKey(form) {
         return (form.method || "get") + "::" + new URL(form.action).pathname;
     }
-    mapkey('yf', '#7Copy form data in JSON on current page', function() {
+    mapkeyWithPrefix("y", "f", '#7Copy form data in JSON on current page', function() {
         var fd = {};
         document.querySelectorAll('form').forEach(function(form) {
             fd[generateFormKey(form)] = getFormData(form, "json");
         });
         clipboard.write(JSON.stringify(fd, null, 4));
     });
-    mapkey(';pf', '#7Fill form with data from yf', function() {
+    mapkeyWithPrefix(";", "pf", '#7Fill form with data from yf', function() {
         hints.create('form', function(element, event) {
             var formKey = generateFormKey(element);
             clipboard.read(function(response) {
@@ -663,7 +686,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             });
         });
     });
-    mapkey('yp', '#7Copy form data for POST on current page', function() {
+    mapkeyWithPrefix("y", "p", '#7Copy form data for POST on current page', function() {
         var aa = [];
         document.querySelectorAll('form').forEach(function(form) {
             var fd = {};
@@ -673,43 +696,43 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         clipboard.write(JSON.stringify(aa, null, 4));
     });
 
-    mapkey('g?', '#4Reload current page without query string(all parts after question mark)', function() {
+    mapkeyWithPrefix("g", "?", '#4Reload current page without query string(all parts after question mark)', function() {
         window.location.href = window.location.href.replace(/\?[^\?]*$/, '');
     });
-    mapkey('g#', '#4Reload current page without hash fragment', function() {
+    mapkeyWithPrefix("g", "#", '#4Reload current page without hash fragment', function() {
         window.location.href = window.location.href.replace(/\#[^\#]*$/, '');
     });
-    mapkey('gU', '#4Go to root of current URL hierarchy', function() {
+    mapkeyWithPrefix("g", "U", '#4Go to root of current URL hierarchy', function() {
         window.location.href = window.location.href.replace(new RegExp('(://([^/]+/){'+RUNTIME.repeats+'}).*'), '$1');
         RUNTIME.repeats = 1;
     });
-    mapkey('gxt', '#3Close tab on left', function() {
+    mapkeyWithPrefix("g", "xt", '#3Close tab on left', function() {
         RUNTIME("closeTabLeft");
     });
-    mapkey('gxT', '#3Close tab on right', function() {
+    mapkeyWithPrefix("g", "xT", '#3Close tab on right', function() {
         RUNTIME("closeTabRight");
     });
-    mapkey('gx0', '#3Close all tabs on left', function() {
+    mapkeyWithPrefix("g", "x0", '#3Close all tabs on left', function() {
         RUNTIME("closeTabsToLeft");
     });
-    mapkey('gx$', '#3Close all tabs on right', function() {
+    mapkeyWithPrefix("g", "x$", '#3Close all tabs on right', function() {
         RUNTIME("closeTabsToRight");
     });
-    mapkey('gxx', '#3Close all tabs except current one', function() {
+    mapkeyWithPrefix("g", "xx", '#3Close all tabs except current one', function() {
         RUNTIME("tabOnly");
     });
-    mapkey('gxp', '#3Close playing tab', function() {
+    mapkeyWithPrefix("g", "xp", '#3Close playing tab', function() {
         RUNTIME("closeAudibleTab");
     });
-    mapkey(';e', '#11Edit Settings', function() {
+    mapkeyWithPrefix(";", "e", '#11Edit Settings', function() {
         tabOpenLink("/pages/options.html");
     });
-    mapkey(';u', '#4Edit current URL with vim editor, and open in new tab', function() {
+    mapkeyWithPrefix(";", "u", '#4Edit current URL with vim editor, and open in new tab', function() {
         front.showEditor(window.location.href, function(data) {
             tabOpenLink(data);
         }, 'url');
     });
-    mapkey(';U', '#4Edit current URL with vim editor, and reload', function() {
+    mapkeyWithPrefix(";", "U", '#4Edit current URL with vim editor, and reload', function() {
         front.showEditor(window.location.href, function(data) {
             window.location.href = data;
         }, 'url');
@@ -757,11 +780,11 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
 
     const bn = getBrowserName();
     if (bn === "Firefox") {
-        mapkey('on', '#3Open newtab', function() {
+        mapkeyWithPrefix("o", "n", '#3Open newtab', function() {
             tabOpenLink("about:blank");
         });
     } else if (bn === "Chrome") {
-        mapkey('cp', '#13Toggle proxy for current site', function() {
+        mapkeyWithPrefix("c", "p", '#13Toggle proxy for current site', function() {
             var host = window.location.host.replace(/:\d+/,'');
             if (host && host.length) {
                 RUNTIME('updateProxy', {
@@ -770,14 +793,14 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
                 });
             }
         });
-        mapkey(';cp', '#13Copy proxy info', function() {
+        mapkeyWithPrefix(";", "cp", '#13Copy proxy info', function() {
             RUNTIME('getSettings', {
                 key: ['proxyMode', 'proxy', 'autoproxy_hosts']
             }, function(response) {
                 clipboard.write(JSON.stringify(response.settings, null, 4));
             });
         });
-        mapkey(';ap', '#13Apply proxy info from clipboard', function() {
+        mapkeyWithPrefix(";", "ap", '#13Apply proxy info from clipboard', function() {
             clipboard.read(function(response) {
                 var proxyConf = JSON.parse(response.data);
                 RUNTIME('updateProxy', {
@@ -789,51 +812,51 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             });
         });
         // create shortcuts for the command with different parameters
-        map(';pa', ':setProxyMode always', 0, '#13set proxy mode `always`');
-        map(';pb', ':setProxyMode byhost', 0, '#13set proxy mode `byhost`');
-        map(';pd', ':setProxyMode direct', 0, '#13set proxy mode `direct`');
-        map(';ps', ':setProxyMode system', 0, '#13set proxy mode `system`');
-        map(';pc', ':setProxyMode clear', 0, '#13set proxy mode `clear`');
-        mapkey('gr', '#14Read selected text or text from clipboard', function() {
+        mapWithPrefix(";", "pa", ':setProxyMode always', 0, '#13set proxy mode `always`');
+        mapWithPrefix(";", "pb", ':setProxyMode byhost', 0, '#13set proxy mode `byhost`');
+        mapWithPrefix(";", "pd", ':setProxyMode direct', 0, '#13set proxy mode `direct`');
+        mapWithPrefix(";", "ps", ':setProxyMode system', 0, '#13set proxy mode `system`');
+        mapWithPrefix(";", "pc", ':setProxyMode clear', 0, '#13set proxy mode `clear`');
+        mapkeyWithPrefix("g", "r", '#14Read selected text or text from clipboard', function() {
             clipboard.read(function(response) {
                 readText(window.getSelection().toString() || response.data, {verbose: true});
             });
         });
-        vmapkey('gr', '#9Read selected text', function() {
+        vmapkeyWithPrefix("g", "r", '#9Read selected text', function() {
             readText(window.getSelection().toString(), {verbose: true});
         });
 
-        mapkey('on', '#3Open newtab', function() {
+        mapkeyWithPrefix("o", "n", '#3Open newtab', function() {
             tabOpenLink("chrome://newtab/");
         });
-        mapkey('ga', '#12Open Chrome About', function() {
+        mapkeyWithPrefix("g", "a", '#12Open Chrome About', function() {
             tabOpenLink("chrome://help/");
         });
-        mapkey('gb', '#12Open Chrome Bookmarks', function() {
+        mapkeyWithPrefix("g", "b", '#12Open Chrome Bookmarks', function() {
             tabOpenLink("chrome://bookmarks/");
         });
-        mapkey('gc', '#12Open Chrome Cache', function() {
+        mapkeyWithPrefix("g", "c", '#12Open Chrome Cache', function() {
             tabOpenLink("chrome://cache/");
         });
-        mapkey('gd', '#12Open Chrome Downloads', function() {
+        mapkeyWithPrefix("g", "d", '#12Open Chrome Downloads', function() {
             tabOpenLink("chrome://downloads/");
         });
-        mapkey('gh', '#12Open Chrome History', function() {
+        mapkeyWithPrefix("g", "h", '#12Open Chrome History', function() {
             tabOpenLink("chrome://history/");
         });
-        mapkey('gk', '#12Open Chrome Cookies', function() {
+        mapkeyWithPrefix("g", "k", '#12Open Chrome Cookies', function() {
             tabOpenLink("chrome://settings/cookies");
         });
-        mapkey('ge', '#12Open Chrome Extensions', function() {
+        mapkeyWithPrefix("g", "e", '#12Open Chrome Extensions', function() {
             tabOpenLink("chrome://extensions/");
         });
-        mapkey('gn', '#12Open Chrome net-internals', function() {
+        mapkeyWithPrefix("g", "n", '#12Open Chrome net-internals', function() {
             tabOpenLink("chrome://net-internals/#proxy");
         });
-        mapkey(';i', '#12Open Chrome Inspect', function() {
+        mapkeyWithPrefix(";", "i", '#12Open Chrome Inspect', function() {
             tabOpenLink("chrome://inspect/#devices");
         });
-        mapkey(';v', '#11Open neovim', function() {
+        mapkeyWithPrefix(";", "v", '#11Open neovim', function() {
             tabOpenLink("/pages/neovim.html");
         });
     }
@@ -846,16 +869,16 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
         mapkey('t', '#8Open a URL', function() {
             front.openOmnibar({type: "URLs"});
         });
-        mapkey('go', '#8Open a URL in current tab', function() {
+        mapkeyWithPrefix("g", "o", '#8Open a URL in current tab', function() {
             front.openOmnibar({type: "URLs", tabbed: false});
         });
-        mapkey('ox', '#8Open recently closed URL', function() {
+        mapkeyWithPrefix("o", "x", '#8Open recently closed URL', function() {
             front.openOmnibar({type: "RecentlyClosed"});
         });
         mapkey('b', '#8Open a bookmark', function() {
             front.openOmnibar(({type: "Bookmarks"}));
         });
-        mapkey(';x', '#3Close tabs by URL', function() {
+        mapkeyWithPrefix(";", "x", '#3Close tabs by URL', function() {
             front.openOmnibar({type: "CloseTabs"});
         });
         mapkey('ab', '#8Bookmark current page to selected folder', function() {
@@ -865,31 +888,37 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             };
             front.openOmnibar(({type: "AddBookmark", extra: page}));
         });
-        mapkey('oh', '#8Open URL from history', function() {
+        mapkeyWithPrefix("o", "h", '#8Open URL from history', function() {
             front.openOmnibar({type: "History"});
         });
-        mapkey('W', '#3Move current tab to another window',  function() {
+        mapkeyWithPrefix("o", "s", '#8Search TSM sessions', function() {
+            front.openOmnibar({type: "TSMSessions"});
+        });
+        mapkeyWithPrefix("o", "t", '#8Search all TSM tabs', function() {
+            front.openOmnibar({type: "TSMAllTabs"});
+        });
+        mapkey('W', '#3Move current tab to another window', function() {
             front.openOmnibar(({type: "Windows"}));
         });
-        mapkey(';gt', '#3Gather filtered tabs into current window', function() {
+        mapkeyWithPrefix(";", "gt", '#3Gather filtered tabs into current window', function() {
             front.openOmnibar({type: "Tabs", extra: {
                 action: "gather"
             }});
         });
-        mapkey(';gw', '#3Gather all tabs into current window',  function() {
+        mapkeyWithPrefix(";", "gw", '#3Gather all tabs into current window', function() {
             RUNTIME("gatherWindows");
         });
-        mapkey('<<', '#3Move current tab to left', function() {
+        mapkeyWithPrefix("<", "<", '#3Move current tab to left', function() {
             RUNTIME('moveTab', {
                 step: -1
             });
         });
-        mapkey('>>', '#3Move current tab to right', function() {
+        mapkeyWithPrefix(">", ">", '#3Move current tab to right', function() {
             RUNTIME('moveTab', {
                 step: 1
             });
         });
-        mapkey('yd', "#7Copy current downloading URL", function() {
+        mapkeyWithPrefix("y", "d", "#7Copy current downloading URL", function() {
             RUNTIME('getDownloads', {
                 query: {state: "in_progress"}
             }, function(response) {
@@ -899,38 +928,38 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
                 clipboard.write(items.join(','));
             });
         });
-        mapkey('gs', '#12View page source', function() {
+        mapkeyWithPrefix("g", "s", '#12View page source', function() {
             RUNTIME("viewSource", { tab: { tabbed: true }});
         });
-        mapkey(';pm', '#11Preview markdown', function() {
+        mapkeyWithPrefix(";", "pm", '#11Preview markdown', function() {
             tabOpenLink("/pages/markdown.html");
         });
-        mapkey(';di', '#1Download image', function() {
+        mapkeyWithPrefix(";", "di", '#1Download image', function() {
             hints.create('img', function(element) {
                 RUNTIME('download', {
                     url: element.src
                 });
             });
         });
-        mapkey(';j', '#12Close Downloads Shelf', function() {
+        mapkeyWithPrefix(";", "j", '#12Close Downloads Shelf', function() {
             RUNTIME("closeDownloadsShelf", {clearHistory: true});
         });
-        mapkey(';dh', '#14Delete history older than 30 days', function() {
+        mapkeyWithPrefix(";", "dh", '#14Delete history older than 30 days', function() {
             RUNTIME('deleteHistoryOlderThan', {
                 days: 30
             });
         });
-        mapkey(';yh', '#14Yank histories', function() {
+        mapkeyWithPrefix(";", "yh", '#14Yank histories', function() {
             RUNTIME('getHistory', {}, function(response) {
                 clipboard.write(response.history.map(h => h.url).join("\n"));
             });
         });
-        mapkey(';ph', '#14Put histories from clipboard', function() {
+        mapkeyWithPrefix(";", "ph", '#14Put histories from clipboard', function() {
             clipboard.read(function(response) {
                 RUNTIME('addHistories', {history: response.data.split("\n")});
             });
         });
-        mapkey(';db', '#14Remove bookmark for current page', function() {
+        mapkeyWithPrefix(";", "db", '#14Remove bookmark for current page', function() {
             RUNTIME('removeBookmark');
         });
     }

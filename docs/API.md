@@ -136,6 +136,28 @@ mapkey("<Space>", "pause/resume on youtube", function() {
 }, {domain: /youtube.com/i});
 ```
 
+## mapkeyWithPrefix
+
+*   **See**: mapkey
+
+Create a shortcut in normal mode to execute your own action, with the key sequence split into `prefix` and `keys`.
+
+### Parameters
+
+*   `prefix` **[string][107]** the leading prefix for the shortcut.
+*   `keys` **[string][107]** the remainder of the key sequence for the shortcut.
+*   `annotation` **[string][107]** a help message to describe the action, which will displayed in help opened by `?`.
+*   `jscode` **[function][108]** a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
+*   `options` **[object][109]** `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command. (optional, default `null`)
+
+### Examples
+
+```javascript
+mapkeyWithPrefix(";", "h", "Toggle this section", function() {
+    console.log("toggle");
+});
+```
+
 ## vmapkey
 
 *   **See**: mapkey
@@ -149,6 +171,20 @@ Create a shortcut in visual mode to execute your own action.
 *   `jscode` **[function][108]** a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
 *   `options` **[object][109]** `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command. (optional, default `null`)
 
+## vmapkeyWithPrefix
+
+*   **See**: vmapkey
+
+Create a shortcut in visual mode to execute your own action, with the key sequence split into `prefix` and `keys`.
+
+### Parameters
+
+*   `prefix` **[string][107]** the leading prefix for the shortcut.
+*   `keys` **[string][107]** the remainder of the key sequence for the shortcut.
+*   `annotation` **[string][107]** a help message to describe the action, which will displayed in help opened by `?`.
+*   `jscode` **[function][108]** a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
+*   `options` **[object][109]** `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command. (optional, default `null`)
+
 ## imapkey
 
 *   **See**: mapkey
@@ -158,6 +194,20 @@ Create a shortcut in insert mode to execute your own action.
 ### Parameters
 
 *   `keys` **[string][107]** the key sequence for the shortcut.
+*   `annotation` **[string][107]** a help message to describe the action, which will displayed in help opened by `?`.
+*   `jscode` **[function][108]** a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
+*   `options` **[object][109]** `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command. (optional, default `null`)
+
+## imapkeyWithPrefix
+
+*   **See**: imapkey
+
+Create a shortcut in insert mode to execute your own action, with the key sequence split into `prefix` and `keys`.
+
+### Parameters
+
+*   `prefix` **[string][107]** the leading prefix for the shortcut.
+*   `keys` **[string][107]** the remainder of the key sequence for the shortcut.
 *   `annotation` **[string][107]** a help message to describe the action, which will displayed in help opened by `?`.
 *   `jscode` **[function][108]** a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
 *   `options` **[object][109]** `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command. (optional, default `null`)
@@ -177,6 +227,26 @@ Map a key sequence to another in normal mode.
 
 ```javascript
 map(';d', '<Ctrl-Alt-d>');
+```
+
+## mapWithPrefix
+
+*   **See**: map
+
+Map a key sequence to another in normal mode, with the target key sequence split into `prefix` and `keys`.
+
+### Parameters
+
+*   `prefix` **[string][107]** the leading prefix for the new mapping.
+*   `keys` **[string][107]** the remainder of the new key sequence.
+*   `old_keystroke` **[string][107]** a key sequence to be replaced
+*   `domain` **regex** a Javascript regex pattern to identify the domains that this mapping works. (optional, default `null`)
+*   `new_annotation` **[string][107]** use it instead of the annotation from old_keystroke if provided. (optional, default `null`)
+
+### Examples
+
+```javascript
+mapWithPrefix("g", "x", "yy");
 ```
 
 ## remap
