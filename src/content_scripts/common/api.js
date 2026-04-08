@@ -92,6 +92,22 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         _mapkey(normal, keys, annotation, jscode, options);
     }
 
+    /**
+     * Create a shortcut in normal mode to execute your own action, with the key sequence split into `prefix` and `keys`.
+     *
+     * @param {string} prefix the leading prefix for the shortcut.
+     * @param {string} keys the remainder of the key sequence for the shortcut.
+     * @param {string} annotation a help message to describe the action, which will displayed in help opened by `?`.
+     * @param {function} jscode a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
+     * @param {object} [options=null] `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command.
+     *
+     * @example
+     * mapkeyWithPrefix(";", "h", "Toggle this section", function() {
+     *     console.log("toggle");
+     * });
+     *
+     * @see mapkey
+     */
     function mapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
         mapkey(prefix + keys, annotation, jscode, options);
     }
@@ -110,6 +126,17 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         _mapkey(visual, keys, annotation, jscode, options);
     }
 
+    /**
+     * Create a shortcut in visual mode to execute your own action, with the key sequence split into `prefix` and `keys`.
+     *
+     * @param {string} prefix the leading prefix for the shortcut.
+     * @param {string} keys the remainder of the key sequence for the shortcut.
+     * @param {string} annotation a help message to describe the action, which will displayed in help opened by `?`.
+     * @param {function} jscode a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
+     * @param {object} [options=null] `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command.
+     *
+     * @see vmapkey
+     */
     function vmapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
         vmapkey(prefix + keys, annotation, jscode, options);
     }
@@ -128,6 +155,17 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         _mapkey(insert, keys, annotation, jscode, options);
     }
 
+    /**
+     * Create a shortcut in insert mode to execute your own action, with the key sequence split into `prefix` and `keys`.
+     *
+     * @param {string} prefix the leading prefix for the shortcut.
+     * @param {string} keys the remainder of the key sequence for the shortcut.
+     * @param {string} annotation a help message to describe the action, which will displayed in help opened by `?`.
+     * @param {function} jscode a Javascript function to be bound. If the function needs an argument, next pressed key will be fed to the function.
+     * @param {object} [options=null] `domain`: regex, a Javascript regex pattern to identify the domains that this mapping works, for example, `/github\.com/i` says that this mapping works only for github.com, `repeatIgnore`: boolean, whether this action can be repeated by dot command.
+     *
+     * @see imapkey
+     */
     function imapkeyWithPrefix(prefix, keys, annotation, jscode, options) {
         imapkey(prefix + keys, annotation, jscode, options);
     }
@@ -170,6 +208,20 @@ function createAPI(clipboard, insert, normal, hints, visual, front, browser) {
         unmap(old_keystroke, domain);
     }
 
+    /**
+     * Map a key sequence to another in normal mode, with the target key sequence split into `prefix` and `keys`.
+     *
+     * @param {string} prefix the leading prefix for the new mapping.
+     * @param {string} keys the remainder of the new key sequence.
+     * @param {string} old_keystroke a key sequence to be replaced
+     * @param {regex} [domain=null] a Javascript regex pattern to identify the domains that this mapping works.
+     * @param {string} [new_annotation=null] use it instead of the annotation from old_keystroke if provided.
+     *
+     * @example
+     * mapWithPrefix("g", "x", "yy");
+     *
+     * @see map
+     */
     function mapWithPrefix(prefix, keys, old_keystroke, domain, new_annotation) {
         map(prefix + keys, old_keystroke, domain, new_annotation);
     }
