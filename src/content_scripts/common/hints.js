@@ -221,7 +221,7 @@ div.hint-scrollable {
     self.setNumeric = function() {
         numeric = true;
     };
-    let characters = "asdfgqwrtzxcvb";
+    let characters = "asfgqwrtzxcvb";
     /**
      * Set characters for generating hints, this API is to replace original setting like `Hints.characters = "asdgqwertzxcvb";`.
      *
