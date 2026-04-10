@@ -409,15 +409,34 @@ function isElementDrawn(e, rect) {
  */
 function isElementPartiallyInViewport(el, ignoreSize) {
     var rect = el.getBoundingClientRect();
-    var windowHeight = (window.innerHeight || document.documentElement.clientHeight);
-    var windowWidth = (window.innerWidth || document.documentElement.clientWidth);
+    const { width: windowWidth, height: windowHeight } = getViewportMetrics();
 
     return (ignoreSize || isElementDrawn(el, rect))
         && (rect.top < windowHeight) && (rect.bottom > 0)
         && (rect.left < windowWidth) && (rect.right > 0);
 }
 
+function getViewportMetrics() {
+    const root = document.scrollingElement || document.documentElement || document.body;
+    const viewport = window.visualViewport;
+    // Some pages use a different active scroll root than documentElement.
+    // Keep all hint visibility math on one normalized viewport/root pair.
+    const height = viewport ? viewport.height : (window.innerHeight || root.clientHeight);
+    const width = viewport ? viewport.width : (window.innerWidth || root.clientWidth);
+
+    return {
+        root,
+        height,
+        width,
+        scrollTop: root ? root.scrollTop : window.pageYOffset,
+        scrollLeft: root ? root.scrollLeft : window.pageXOffset,
+        clientTop: root ? root.clientTop : 0,
+        clientLeft: root ? root.clientLeft : 0,
+    };
+}
+
 function getVisibleElements(filter) {
+    const { width: viewportWidth, height: viewportHeight } = getViewportMetrics();
     var all = Array.from(document.documentElement.getElementsByTagName("*"));
     var visibleElements = [];
     for (var i = 0; i < all.length; i++) {
@@ -430,8 +449,8 @@ function getVisibleElements(filter) {
             }
         }
         var rect = e.getBoundingClientRect();
-        if ( (rect.top <= window.innerHeight) && (rect.bottom >= 0)
-            && (rect.left <= window.innerWidth) && (rect.right >= 0)
+        if ( (rect.top <= viewportHeight) && (rect.bottom >= 0)
+            && (rect.left <= viewportWidth) && (rect.right >= 0)
             && rect.height > 0
             && getComputedStyle(e).visibility !== 'hidden'
         ) {
@@ -1158,6 +1177,7 @@ export {
     getTextNodePos,
     getTextNodes,
     getTextRect,
+    getViewportMetrics,
     getVisibleElements,
     getWordUnderCursor,
     hashString,
