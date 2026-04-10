@@ -13,6 +13,7 @@ import {
     getClickableElements,
     getColor,
     getCssSelectorsOfEditable,
+    getViewportMetrics,
     getRealRect,
     getTextNodePos,
     getVisibleElements,
@@ -195,11 +196,11 @@ div.hint-scrollable {
 }`);
     /* When the <style> loaded, set hints host's size */
     hintsStyle.onload = () => {
-        /* Get height and width in integers */
-        const height = Math.floor(document.documentElement.scrollTop +
-            document.documentElement.clientHeight) - 1;
-        const width = Math.floor(document.documentElement.scrollLeft +
-            document.documentElement.clientWidth) - 1;
+        // Use the normalized viewport metrics here so hint overlays still size correctly
+        // when documentElement is not the active scroll root.
+        const { height: viewportHeight, width: viewportWidth, scrollTop, scrollLeft } = getViewportMetrics();
+        const height = Math.floor(scrollTop + viewportHeight) - 1;
+        const width = Math.floor(scrollLeft + viewportWidth) - 1;
 
         /* Set height and width */
         hintsHost.style.height = `${height}px`;
@@ -667,9 +668,11 @@ div.hint-scrollable {
         holder.prepend(link);
         hintsHost.shadowRoot.appendChild(holder);
         var br = link.getBoundingClientRect();
+        const { clientTop, clientLeft } = getViewportMetrics();
         var ret = {
-            top: br.top + window.pageYOffset - document.documentElement.clientTop,
-            left: br.left + window.pageXOffset - document.documentElement.clientLeft
+            // Match the same root metrics used for visibility checks and host sizing.
+            top: br.top + window.pageYOffset - clientTop,
+            left: br.left + window.pageXOffset - clientLeft
         };
         setSanitizedContent(holder, "");
         holder.remove();
