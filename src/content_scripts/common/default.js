@@ -285,7 +285,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             return;
         }
         linkHintsActive = true;
-        hints.create("", hints.dispatchMouseClick, { multipleHits: false, tabbed: true });
+        hints.create("", hints.dispatchMouseClick, { multipleHits: false });
     }, { repeatIgnore: true });
 
     mapkey("v", '#9Toggle visual mode', function() {
@@ -379,7 +379,7 @@ export default function(api, clipboard, insert, normal, hints, visual, front, br
             name: 'LAST'
         });
     });
-    map('u', 'e');
+    map('u', 'gf');
     mapkeyWithPrefix("a", "f", '#1Open a link in active new tab', function() {
         hints.create("", hints.dispatchMouseClick, {tabbed: true, active: true});
     });
