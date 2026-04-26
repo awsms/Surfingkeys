@@ -138,5 +138,23 @@ describe('ui front', () => {
 
         expect(passThrough.classList.contains("usage-filtered-out")).toBe(false);
         expect(searchSelected.classList.contains("usage-filtered-out")).toBe(true);
+
+        pressKey("Escape");
+    });
+
+    test('does not leak unmatched usage keys to normal mode', async () => {
+        const usage = document.getElementById("sk_usage");
+        postFrontendMessage({
+            action: "showUsage",
+            metas: [
+                {word: "cq", annotation: "Copy query string", feature_group: 7}
+            ]
+        });
+        await waitUntil(() => usage.querySelector(".usage-entry"));
+
+        const event = pressKey("s");
+
+        expect(event.defaultPrevented).toBe(true);
+        expect(usage.style).not.toHaveProperty('display', 'none');
     });
 });
