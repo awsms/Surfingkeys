@@ -289,7 +289,100 @@ function start(browser) {
         }, tmpSet);
     }
 
-    loadSettings(null, browser._applyProxySettings);
+    const localPathWatcher = {
+        alarmName: "surfingkeys-local-path-watch",
+        intervalId: null,
+        intervalMs: 500,
+        alarmPeriodInMinutes: 0.5,
+        inFlight: false,
+        localPath: ""
+    };
+
+    function hasAlarmsApi() {
+        return chrome.alarms
+            && chrome.alarms.create
+            && chrome.alarms.clear
+            && chrome.alarms.onAlarm
+            && chrome.alarms.onAlarm.addListener;
+    }
+
+    function configureLocalPathWatcher(localPath) {
+        localPath = localPath || "";
+        const localPathChanged = localPath !== localPathWatcher.localPath;
+        localPathWatcher.localPath = localPath;
+        if (localPathWatcher.localPath) {
+            if (!localPathWatcher.intervalId) {
+                localPathWatcher.intervalId = setInterval(checkLocalPathForUpdates, localPathWatcher.intervalMs);
+            }
+            if (localPathChanged && hasAlarmsApi()) {
+                chrome.alarms.create(localPathWatcher.alarmName, {
+                    periodInMinutes: localPathWatcher.alarmPeriodInMinutes
+                });
+            }
+        } else {
+            if (localPathWatcher.intervalId) {
+                clearInterval(localPathWatcher.intervalId);
+                localPathWatcher.intervalId = null;
+            }
+            if (localPathChanged && hasAlarmsApi()) {
+                chrome.alarms.clear(localPathWatcher.alarmName);
+            }
+        }
+    }
+
+    function cacheLocalPathSnippets(localPath, snippets, cb) {
+        chrome.storage.local.set({
+            localPath,
+            snippets,
+            savedAt: new Date().getTime()
+        }, cb);
+    }
+
+    function checkLocalPathForUpdates() {
+        if (localPathWatcher.inFlight) {
+            return;
+        }
+        localPathWatcher.inFlight = true;
+        chrome.storage.local.get(["localPath", "snippets"], function(set) {
+            const localPath = set.localPath || "";
+            configureLocalPathWatcher(localPath);
+            if (!localPath) {
+                localPathWatcher.inFlight = false;
+                return;
+            }
+            request(appendNonce(localPath), function(resp) {
+                localPathWatcher.inFlight = false;
+                if (resp !== set.snippets) {
+                    cacheLocalPathSnippets(localPath, resp, function() {
+                        _broadcastFullSettings();
+                    });
+                }
+            }, undefined, undefined, function() {
+                localPathWatcher.inFlight = false;
+            });
+        });
+    }
+
+    if (hasAlarmsApi()) {
+        chrome.alarms.onAlarm.addListener(function(alarm) {
+            if (alarm.name === localPathWatcher.alarmName) {
+                checkLocalPathForUpdates();
+            }
+        });
+    }
+
+    if (chrome.storage && chrome.storage.onChanged && chrome.storage.onChanged.addListener) {
+        chrome.storage.onChanged.addListener(function(changes, areaName) {
+            if (areaName === "local" && changes.localPath) {
+                configureLocalPathWatcher(changes.localPath.newValue);
+            }
+        });
+    }
+
+    loadSettings(null, function(data) {
+        browser._applyProxySettings(data);
+        configureLocalPathWatcher(data.localPath);
+    });
 
     function removeTab(tabId) {
         delete tabActivated[tabId];

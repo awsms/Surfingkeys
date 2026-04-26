@@ -41,6 +41,7 @@
         "bookmarks",
         "scripting",
         "storage",
+        "alarms",
         "sessions",
         "downloads",
         "topSites",
