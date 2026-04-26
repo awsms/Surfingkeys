@@ -56,6 +56,7 @@
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
+    "@babel/runtime": "^7.29.2",
     "@msgpack/msgpack": "^2.8.0",
     "@pixi/app": "^7.4.3",
     "@pixi/constants": "^7.4.3",

@@ -22,6 +22,7 @@ import {
 import createFront from './front.js';
 import createAPI from './common/api.js';
 import createDefaultMappings from './common/default.js';
+import Trie from './common/trie';
 
 import KeyboardUtils from './common/keyboardUtils';
 
@@ -51,6 +52,87 @@ function applyBasicMappings(api, normal, mappings) {
             api.map(newKey, originKey);
         }
     }
+}
+
+function cloneTrie(node) {
+    const cloned = new Trie();
+    if (node.hasOwnProperty('stem')) {
+        cloned.stem = node.stem;
+    }
+    if (node.hasOwnProperty('meta')) {
+        cloned.meta = Object.assign({}, node.meta);
+    }
+    for (const k in node) {
+        if (k.length === 1) {
+            cloned[k] = cloneTrie(node[k]);
+        }
+    }
+    return cloned;
+}
+
+function cloneSettings(value) {
+    if (value instanceof RegExp) {
+        return new RegExp(value.source, value.flags);
+    }
+    if (value instanceof Array) {
+        return value.map(cloneSettings);
+    }
+    if (value && typeof(value) === "object") {
+        const cloned = {};
+        for (const k in value) {
+            cloned[k] = cloneSettings(value[k]);
+        }
+        return cloned;
+    }
+    return value;
+}
+
+function cloneSpecialKeys() {
+    const cloned = {};
+    for (const k in Mode.specialKeys) {
+        cloned[k] = Mode.specialKeys[k].slice();
+    }
+    return cloned;
+}
+
+function snapshotDefaultState(normal, insert, visual) {
+    return {
+        runtimeConf: cloneSettings(runtime.conf),
+        specialKeys: cloneSpecialKeys(),
+        mappings: {
+            normal: cloneTrie(normal.mappings),
+            insert: cloneTrie(insert.mappings),
+            visual: cloneTrie(visual.mappings)
+        }
+    };
+}
+
+function restoreDefaultState(defaultState, normal, insert, visual) {
+    for (const k in runtime.conf) {
+        delete runtime.conf[k];
+    }
+    Object.assign(runtime.conf, cloneSettings(defaultState.runtimeConf));
+
+    for (const k in Mode.specialKeys) {
+        delete Mode.specialKeys[k];
+    }
+    Object.assign(Mode.specialKeys, cloneSettings(defaultState.specialKeys));
+
+    [
+        [normal, defaultState.mappings.normal],
+        [insert, defaultState.mappings.insert],
+        [visual, defaultState.mappings.visual]
+    ].forEach(([mode, defaultMappings]) => {
+        mode.mappings = cloneTrie(defaultMappings);
+        mode.map_node = mode.mappings;
+        mode.pendingMap = null;
+        mode.repeats = "";
+    });
+}
+
+function shouldRestoreDefaults(rs) {
+    return rs.hasOwnProperty('showAdvanced')
+        && (rs.hasOwnProperty('snippets') || rs.hasOwnProperty('basicMappings'));
 }
 
 function ensureRegex(regexName) {
@@ -105,7 +187,10 @@ const userConfPromise = new Promise(function (resolve, reject) {
     }, {once: true});
 });
 
-function applySettings(api, normal, rs) {
+function applySettings(api, normal, rs, defaultState, insert, visual) {
+    if (defaultState && shouldRestoreDefaults(rs)) {
+        restoreDefaultState(defaultState, normal, insert, visual);
+    }
     for (var k in rs) {
         if (runtime.conf.hasOwnProperty(k)) {
             runtime.conf[k] = rs[k];
@@ -123,14 +208,18 @@ function applySettings(api, normal, rs) {
                 api.removeSearchAlias(key);
             }
         }
-    } else if (!rs.isMV3 && rs.snippets && !document.location.href.startsWith(chrome.runtime.getURL("/"))) {
-        var settings = {}, error = "";
-        try {
-            (new Function('settings', 'api', rs.snippets))(settings, api);
-        } catch (e) {
-            error = e.toString();
+    } else if (rs.snippets && !document.location.href.startsWith(chrome.runtime.getURL("/"))) {
+        if (rs.isMV3) {
+            dispatchSKEvent('user', ["applySettingsSnippets", chrome.runtime.getURL("/"), rs.snippets]);
+        } else {
+            var settings = {}, error = "";
+            try {
+                (new Function('settings', 'api', rs.snippets))(settings, api);
+            } catch (e) {
+                error = e.toString();
+            }
+            applyUserSettings({settings, error});
         }
-        applyUserSettings({settings, error});
     }
 
     applyRuntimeConf(normal);
@@ -151,6 +240,7 @@ function _initModules() {
 
     const api = createAPI(clipboard, insert, normal, hints, visual, front, _browser);
     createDefaultMappings(api, clipboard, insert, normal, hints, visual, front, _browser);
+    const defaultState = snapshotDefaultState(normal, insert, visual);
     if (typeof(_browser.plugin) === "function") {
         _browser.plugin({ front });
     }
@@ -158,7 +248,7 @@ function _initModules() {
     dispatchSKEvent('defaultSettingsLoaded', {normal, api});
     RUNTIME('getSettings', null, function(response) {
         var rs = response.settings;
-        applySettings(api, normal, rs);
+        applySettings(api, normal, rs, defaultState, insert, visual);
         const disabledSearchAliases = rs.disabledSearchAliases;
         const getUsage = front.getUsage;
         const frontCommand = front.command;
@@ -168,6 +258,9 @@ function _initModules() {
         normal,
         front,
         api,
+        defaultState,
+        insert,
+        visual,
     };
 }
 
@@ -176,7 +269,7 @@ function _initContent(modes) {
     window.frameId = generateQuickGuid();
     runtime.on('settingsUpdated', response => {
         var rs = response.settings;
-        applySettings(modes.api, modes.normal, rs);
+        applySettings(modes.api, modes.normal, rs, modes.defaultState, modes.insert, modes.visual);
     });
 
     if (runtime.conf.stealFocusOnLoad && !isInUIFrame()

@@ -4,6 +4,7 @@ describe('normal mode', () => {
     beforeAll(async () => {
         global.chrome = {
             runtime: {
+                getURL: jest.fn((path) => path),
                 sendMessage: jest.fn(),
                 onMessage: {
                     addListener: jest.fn()

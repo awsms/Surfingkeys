@@ -324,6 +324,7 @@ export default function(
             });
         } else {
             RUNTIME('updateSettings', {
+                reloadSettings: true,
                 settings: {
                     snippets: settingsCode,
                     localPath: getURIPath(localPathInput.value)
