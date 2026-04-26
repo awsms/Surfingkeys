@@ -80,6 +80,10 @@ const Front = (function() {
         active: false,
         pendingTimer: null
     };
+    const usageSearch = {
+        active: false,
+        query: ""
+    };
 
     var pressedHintKeys = "";
     var _display;
@@ -287,6 +291,149 @@ const Front = (function() {
         clearUsagePending();
         usageNavigator.node = usageNavigator.trie;
     }
+    function ensureUsageSearchBox() {
+        let searchBox = _usage.querySelector(".usage-search");
+        if (!searchBox) {
+            searchBox = document.createElement("div");
+            searchBox.className = "usage-search";
+
+            const prompt = document.createElement("span");
+            prompt.className = "usage-search-prompt";
+            prompt.textContent = "/";
+
+            const query = document.createElement("input");
+            query.className = "usage-search-query";
+            query.type = "text";
+            query.autocomplete = "off";
+            query.spellcheck = false;
+            query.addEventListener("input", () => {
+                usageSearch.query = query.value;
+                updateUsageSearch();
+            });
+
+            const count = document.createElement("span");
+            count.className = "usage-search-count";
+
+            searchBox.append(prompt, query, count);
+            _usage.insertBefore(searchBox, _usage.firstChild);
+        }
+        return searchBox;
+    }
+    function getUsageSearchWords(text) {
+        return text.toLowerCase().split(/\W+/).filter(Boolean);
+    }
+    function fuzzyMatchWord(word, token) {
+        let offset = 0;
+        for (let i = 0; i < word.length && offset < token.length; i++) {
+            if (word[i] === token[offset]) {
+                offset++;
+            }
+        }
+        return offset === token.length;
+    }
+    function usageEntryMatches(entry, query) {
+        const tokens = getUsageSearchWords(query);
+        if (tokens.length === 0) {
+            return true;
+        }
+        const annotation = entry.querySelector(".annotation");
+        const kbd = entry.querySelector("kbd");
+        const group = entry.closest(".usage-group");
+        const groupName = group && group.querySelector(".feature_name");
+        const text = [
+            annotation ? annotation.textContent : "",
+            kbd ? kbd.textContent : "",
+            groupName ? groupName.textContent : ""
+        ].join(" ");
+        const words = getUsageSearchWords(text);
+        return tokens.every((token) => words.some((word) => fuzzyMatchWord(word, token)));
+    }
+    function updateUsageSearch() {
+        if (!_usage || _usage.style.display === "none") {
+            return;
+        }
+        const searchBox = ensureUsageSearchBox();
+        const entries = Array.from(_usage.querySelectorAll(".usage-entry"));
+        let visibleCount = 0;
+        entries.forEach((entry) => {
+            const matched = usageEntryMatches(entry, usageSearch.query);
+            entry.classList.toggle("usage-filtered-out", !matched);
+            if (matched) {
+                visibleCount++;
+            }
+        });
+        _usage.querySelectorAll(".usage-group").forEach((group) => {
+            const hasVisibleEntry = group.querySelector(".usage-entry:not(.usage-filtered-out)") !== null;
+            group.classList.toggle("usage-filtered-out", !hasVisibleEntry);
+        });
+        const footer = _usage.querySelector(".usage-footer");
+        if (footer) {
+            footer.classList.toggle("usage-filtered-out", usageSearch.active);
+        }
+        const input = searchBox.querySelector(".usage-search-query");
+        if (input.value !== usageSearch.query) {
+            input.value = usageSearch.query;
+        }
+        searchBox.querySelector(".usage-search-count").textContent = `${visibleCount}/${entries.length}`;
+    }
+    function clearUsageSearch() {
+        usageSearch.active = false;
+        usageSearch.query = "";
+        _usage.querySelectorAll(".usage-filtered-out").forEach((entry) => {
+            entry.classList.remove("usage-filtered-out");
+        });
+        const searchBox = _usage.querySelector(".usage-search");
+        if (searchBox) {
+            searchBox.remove();
+        }
+    }
+    function startUsageSearch() {
+        clearUsagePending();
+        clearUsageHighlight();
+        usageSearch.active = true;
+        usageSearch.query = "";
+        updateUsageSearch();
+        const input = _usage.querySelector(".usage-search-query");
+        if (input) {
+            input.focus();
+        }
+        _usage.scrollTop = 0;
+    }
+    function suppressUsageKey(event) {
+        event.sk_stopPropagation = true;
+        event.sk_suppressed = true;
+        event.preventDefault();
+    }
+    function isUsageEsc(event, key) {
+        return Mode.isSpecialKeyOf("<Esc>", key) || event.key === "Escape" || event.key === "Esc";
+    }
+    function allowUsageInputKey(event) {
+        event.sk_suppressed = true;
+        return true;
+    }
+    function handleUsageSearchKey(event, key) {
+        if (isUsageEsc(event, key)) {
+            clearUsageSearch();
+            resetUsageNavigator();
+            suppressUsageKey(event);
+            return true;
+        }
+        if (key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+            clearUsageSearch();
+            resetUsageNavigator();
+            suppressUsageKey(event);
+            return true;
+        }
+        if (event.keyCode === KeyboardUtils.keyCodes.enter || event.key === "Enter") {
+            suppressUsageKey(event);
+            return true;
+        }
+        const input = _usage.querySelector(".usage-search-query");
+        if (input && document.activeElement !== input) {
+            input.focus();
+        }
+        return allowUsageInputKey(event);
+    }
     function buildUsageTrie() {
         const trie = new Trie();
         const mappings = [normal.mappings, visual.mappings, insert.mappings, omnibar.mappings];
@@ -338,6 +485,7 @@ const Front = (function() {
         usageNavigator.trie = null;
         usageNavigator.node = null;
         clearUsagePending();
+        clearUsageSearch();
         Mode.setGlobalKeyInterceptor(null);
     }
     function highlightUsage(keystroke) {
@@ -364,10 +512,17 @@ const Front = (function() {
         if (!key) {
             return false;
         }
-        if (Mode.isSpecialKeyOf("<Esc>", key) || key === "?") {
+        if (usageSearch.active) {
+            return handleUsageSearchKey(event, key);
+        }
+        if (isUsageEsc(event, key) || key === "?") {
             self.hidePopup();
-            event.sk_stopPropagation = true;
-            event.preventDefault();
+            suppressUsageKey(event);
+            return true;
+        }
+        if (key === "/") {
+            startUsageSearch();
+            suppressUsageKey(event);
             return true;
         }
         clearUsagePending();
@@ -544,8 +699,9 @@ const Front = (function() {
             var help_groups = feature_groups.map(function(){return [];});
             const lh = Mode.specialKeys["<Alt-s>"].length;
             if (lh > 0) {
-                help_groups[0].push("<div><span class=kbd-span><kbd>{0}</kbd></span><span class=annotation>{1}</span></div>".format(
-                    htmlEncode(Mode.specialKeys["<Alt-s>"][lh - 1]), locale("Toggle SurfingKeys on current site")));
+                const altS = Mode.specialKeys["<Alt-s>"][lh - 1];
+                help_groups[0].push("<div class=\"usage-entry\" data-keystroke=\"{0}\"><span class=kbd-span><kbd>{1}</kbd></span><span class=annotation>{2}</span></div>".format(
+                    htmlEncode(KeyboardUtils.encodeKeystroke(altS)), htmlEncode(altS), locale("Toggle SurfingKeys on current site")));
             }
 
             metas = metas.concat(getAnnotations(omnibar.mappings));
@@ -557,13 +713,13 @@ const Front = (function() {
             });
             help_groups = help_groups.map(function(g, i) {
                 if (g.length) {
-                    return "<div><div class=feature_name><span>{0}</span></div>{1}</div>".format(locale(feature_groups[i]), g.join(''));
+                    return "<div class=\"usage-group\"><div class=feature_name><span>{0}</span></div>{1}</div>".format(locale(feature_groups[i]), g.join(''));
                 } else {
                     return "";
                 }
             }).join("");
 
-            help_groups += `<p style='float:right; width:100%; text-align:right'><a href='https://github.com/brookhong/surfingkeys' target='_blank' style='color:#0095dd'>${locale("More help")}</a></p>`;
+            help_groups += `<p class='usage-footer' style='float:right; width:100%; text-align:right'><a href='https://github.com/brookhong/surfingkeys' target='_blank' style='color:#0095dd'>${locale("More help")}</a></p>`;
             cb(help_groups);
         });
     }

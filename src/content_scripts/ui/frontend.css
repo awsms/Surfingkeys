@@ -262,6 +262,35 @@ body {
     display: inline-block;
     vertical-align: top;
 }
+#sk_usage>.usage-search {
+    align-items: center;
+    border-bottom: 1px solid #ccc;
+    box-sizing: border-box;
+    display: flex;
+    gap: 8px;
+    margin: 0 0 8px 0;
+    padding: 0 0 8px 0;
+    width: 100%;
+}
+#sk_usage .usage-search-prompt {
+    color: #b90c0c;
+    font-weight: bold;
+}
+#sk_usage .usage-search-query {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    flex: 1;
+    font: inherit;
+    min-height: 18px;
+    min-width: 0;
+    outline: 0;
+    padding: 0;
+    white-space: pre-wrap;
+}
+#sk_usage .usage-search-count {
+    color: #666;
+}
 #sk_usage .kbd-span {
     width: 80px;
     text-align: right;
@@ -286,6 +315,9 @@ body {
 #sk_usage .usage-highlight {
     background: #ffe7ba;
     box-shadow: 0 0 0 2px #f6c564;
+}
+#sk_usage .usage-filtered-out {
+    display: none !important;
 }
 #sk_usage * {
     font-size: 10pt;
