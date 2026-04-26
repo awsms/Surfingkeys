@@ -532,7 +532,8 @@ const Front = (function() {
         }
         if (!nextNode) {
             usageNavigator.node = usageNavigator.trie;
-            return false;
+            suppressUsageKey(event);
+            return true;
         }
         event.sk_stopPropagation = true;
         event.sk_suppressed = true;
