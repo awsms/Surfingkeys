@@ -101,8 +101,9 @@ describe('markdown viewer', () => {
 
         const links = document.querySelectorAll("a");
         links.forEach((l, i) => {
+            l.style.opacity = "1";
             l.getBoundingClientRect = jest.fn(() => {
-                return { width: 100, height: 10, top: 100 * i, left: 0, bottom: 0, right: 0 };
+                return { width: 100, height: 10, top: 100 * i, left: 0, bottom: 100 * i + 10, right: 100 };
             });
         });
         document.elementFromPoint = jest.fn(() => {
@@ -110,7 +111,8 @@ describe('markdown viewer', () => {
         });
         expect(document.querySelector("div.surfingkeys_hints_host")).toBe(null);
 
-        document.body.dispatchEvent(new KeyboardEvent('keydown', {'key': 'f'}));
+        normal.enter(undefined, true);
+        document.body.dispatchEvent(new KeyboardEvent('keydown', {'key': 'e'}));
         const hint_labels = document.querySelector("div.surfingkeys_hints_host").shadowRoot.querySelectorAll("section>div");
         expect(hint_labels.length).toBe(2);
         expect(hint_labels[0].label).toBe("A");

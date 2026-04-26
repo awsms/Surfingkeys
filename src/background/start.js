@@ -521,9 +521,24 @@ function start(browser) {
         });
     }
 
-    function _updateAndPostSettings(diffSettings, afterSet) {
-        _broadcastSettings(diffSettings);
-        _updateSettings(diffSettings, afterSet);
+    function _broadcastFullSettings(afterBroadcast) {
+        loadSettings(null, function(data) {
+            onFullSettingsRequested(data, function() {
+                _broadcastSettings(data);
+                afterBroadcast && afterBroadcast();
+            });
+        });
+    }
+
+    function _updateAndPostSettings(diffSettings, afterSet, reloadSettings) {
+        if (reloadSettings) {
+            _updateSettings(Object.assign({}, diffSettings), function() {
+                _broadcastFullSettings(afterSet);
+            });
+        } else {
+            _broadcastSettings(diffSettings);
+            _updateSettings(diffSettings, afterSet);
+        }
     }
 
     function _updateTabIndices() {
@@ -668,10 +683,9 @@ function start(browser) {
 
     function _loadSettingsFromUrl(url, cb) {
         request(appendNonce(url), function(resp) {
-            _updateAndPostSettings({localPath: url, snippets: resp});
-            registerUserScript(resp, () => {
+            _updateAndPostSettings({localPath: url, snippets: resp}, () => {
                 cb({status: "Succeeded", snippets: resp});
-            });
+            }, true);
         }, undefined, undefined, function (po) {
             cb({status: "Failed"});
         });
@@ -1405,7 +1419,7 @@ function start(browser) {
                         csp: 'script-src \'self\' \'unsafe-eval\'',
                         messaging: true
                     });
-                    _updateAndPostSettings(message.settings);
+                    _updateAndPostSettings(message.settings, undefined, message.reloadSettings);
                     registerUserScript(message.settings.snippets, () => {
                         _response(message, sendResponse, { error });
                     });
@@ -1414,7 +1428,7 @@ function start(browser) {
                     error = "Advanced mode is only available when Developer mode is turned on from chrome://extensions/.";
                 }
             } else {
-                _updateAndPostSettings(message.settings);
+                _updateAndPostSettings(message.settings, undefined, message.reloadSettings);
             }
         }
         return { error };

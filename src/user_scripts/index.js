@@ -114,6 +114,10 @@ let userScriptTask = () => {};
 let hintsCreationResolve;
 let _pendingOnEnter = null;
 initSKFunctionListener("user", {
+    applySettingsSnippets: (extensionRootUrl, snippets) => {
+        EXTENSION_ROOT_URL = extensionRootUrl;
+        runSettingsSnippets(snippets);
+    },
     callUserFunction: (keys, para) => {
         if (userDefinedFunctions.hasOwnProperty(keys)) {
             userDefinedFunctions[keys](para);
@@ -341,18 +345,45 @@ const api = {
     },
 };
 
+function applyUserFunction(uf) {
+    var settings = {}, error = "";
+    try {
+        uf(api, settings);
+    } catch(e) {
+        error = e.toString();
+    }
+    applyUserSettings({settings, error});
+}
+
+function clearObject(obj) {
+    for (const key in obj) {
+        delete obj[key];
+    }
+}
+
+function resetUserScriptState() {
+    clearObject(userDefinedFunctions);
+    clearObject(userDefinedCommands);
+    clearObject(functionsToListSuggestions);
+    inlineQuery = undefined;
+    hintsFunction = undefined;
+    onClipboardReadFn = undefined;
+    onEditorWriteFn = undefined;
+    hintsCreationResolve = undefined;
+    _pendingOnEnter = null;
+}
+
+function runSettingsSnippets(snippets) {
+    resetUserScriptState();
+    applyUserFunction((api, settings) => {
+        (new Function('api', 'settings', snippets))(api, settings);
+    });
+}
+
 export default (extensionRootUrl, uf) => {
     EXTENSION_ROOT_URL = extensionRootUrl;
     if (isInUIFrame()) return;
-    userScriptTask = () => {
-        var settings = {}, error = "";
-        try {
-            uf(api, settings);
-        } catch(e) {
-            error = e.toString();
-        }
-        applyUserSettings({settings, error});
-    };
+    userScriptTask = () => applyUserFunction(uf);
     if (window === top) {
         userScriptTask();
     }
