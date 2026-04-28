@@ -55,6 +55,7 @@ function createDisabled(normal) {
 
 function createLurk(normal) {
     const self = new Mode("Lurk");
+    self.suppressUnmatchedKeyAfterPrefix = true;
 
     function enterNormal() {
         normal.enter();
@@ -163,6 +164,7 @@ function createPassThrough() {
 
 function createNormal(insert) {
     var self = new Mode("Normal");
+    self.suppressUnmatchedKeyAfterPrefix = true;
 
     self.mappings = new Trie();
     self.map_node = self.mappings;

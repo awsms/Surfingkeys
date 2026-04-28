@@ -20,6 +20,7 @@ import {
 
 function createVisual(clipboard, hints) {
     var self = new Mode("Visual");
+    self.suppressUnmatchedKeyAfterPrefix = true;
 
     self.addEventListener('keydown', function(event) {
         if (visualf) {

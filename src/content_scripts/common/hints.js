@@ -37,6 +37,7 @@ function placeHintsHost(host) {
 
 function createRegionalHints(clipboard) {
     const self = new Mode("RegionalHints");
+    self.suppressUnmatchedKeyAfterPrefix = true;
 
     self.mappings = new Trie();
     self.map_node = self.mappings;
@@ -159,6 +160,7 @@ kbd {
 
 function createHints(insert, normal, clipboard) {
     const self = new Mode("Hints");
+    self.suppressUnmatchedKeyAfterPrefix = true;
     const hintsHost = document.createElement("div");
     hintsHost.className = "surfingkeys_hints_host";
     hintsHost.attachShadow({ mode: 'open' });

@@ -210,6 +210,7 @@ function describeMode(mode) {
         priority: mode.priority || 0,
         pendingMap: !!mode.pendingMap,
         repeats: mode.repeats,
+        suppressUnmatchedKeyAfterPrefix: !!mode.suppressUnmatchedKeyAfterPrefix,
         mapNode: describeMapNode(mode.map_node, mode.mappings)
     };
 }
@@ -656,8 +657,12 @@ Mode.handleMapKey = function(event, onNoMatched) {
                     : "key is not mapped in this mode"
             });
             onNoMatched && onNoMatched(last);
+            var partialMappingWasActive = (last !== this.mappings);
             if (!event.sk_suppressed) {
-                event.sk_suppressed = (last !== this.mappings);
+                event.sk_suppressed = partialMappingWasActive;
+            }
+            if (partialMappingWasActive && this.suppressUnmatchedKeyAfterPrefix) {
+                event.sk_stopPropagation = true;
             }
             actionDone = Mode.finish(this);
             Mode.debugKey(event, "map.noMatchDone", {
@@ -665,8 +670,10 @@ Mode.handleMapKey = function(event, onNoMatched) {
                 actionDone: actionDone,
                 skSuppressed: !!event.sk_suppressed,
                 skStopPropagation: !!event.sk_stopPropagation,
-                reason: event.sk_suppressed
-                    ? "unmatched key followed a SurfingKeys prefix, so later SurfingKeys modes are skipped"
+                reason: partialMappingWasActive
+                    ? (event.sk_stopPropagation
+                        ? "unmatched key followed a SurfingKeys prefix and this mode suppresses page handling"
+                        : "unmatched key followed a SurfingKeys prefix, but this mode lets the page/input handle it")
                     : "unmatched key at mapping root, so page can handle it"
             });
         } else {

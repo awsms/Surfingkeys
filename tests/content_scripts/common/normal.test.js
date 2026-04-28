@@ -60,6 +60,34 @@ describe('normal mode', () => {
         expect(normal.captureElement).toHaveBeenCalledTimes(1);
     });
 
+    test("normal suppresses unmatched keys after a mapped prefix", async () => {
+        normal.enter();
+        normal.mappings.add(",x", {
+            annotation: "test prefix",
+            feature_group: 0,
+            code: jest.fn()
+        });
+        const pageListener = jest.fn();
+        document.body.addEventListener("keydown", pageListener);
+
+        const comma = new KeyboardEvent("keydown", { key: ",", bubbles: true, cancelable: true });
+        const shift = new KeyboardEvent("keydown", { key: "Shift", keyCode: 16, bubbles: true, cancelable: true });
+        const question = new KeyboardEvent("keydown", { key: "?", shiftKey: true, bubbles: true, cancelable: true });
+
+        document.body.dispatchEvent(comma);
+        document.body.dispatchEvent(shift);
+        document.body.dispatchEvent(question);
+
+        document.body.removeEventListener("keydown", pageListener);
+        normal.mappings.remove(",x");
+
+        expect(comma.defaultPrevented).toBe(true);
+        expect(shift.defaultPrevented).toBe(false);
+        expect(question.defaultPrevented).toBe(true);
+        expect(pageListener).toHaveBeenCalledTimes(1);
+        expect(pageListener.mock.calls[0][0].key).toBe("Shift");
+    });
+
     test("normal mouse up", async () => {
         runtime.conf.mouseSelectToQuery = [ "http://localhost" ];
         await new Promise((r) => {
