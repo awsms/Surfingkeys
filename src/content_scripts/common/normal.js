@@ -28,10 +28,22 @@ function createDisabled(normal) {
     self.addEventListener('keydown', function(event) {
         // prevent this event to be handled by Surfingkeys' other listeners
         event.sk_suppressed = true;
+        Mode.debugKey(event, "Disabled.keydown", {
+            mode: self.name,
+            activatedOnElement: self.activatedOnElement,
+            activeElement: Mode.describeElement(document.activeElement),
+            reason: "SurfingKeys is disabled for this page or active element"
+        });
         if (self.activatedOnElement && !document.activeElement.matches(runtime.conf.disabledOnActiveElementPattern)) {
+            Mode.debugKey(event, "Disabled.leaveActiveElement", {
+                reason: "active element no longer matches disabledOnActiveElementPattern"
+            });
             normal.enable();
             self.activatedOnElement = false;
         } else if (Mode.isSpecialKeyOf("<Alt-s>", event.sk_keyName)) {
+            Mode.debugKey(event, "Disabled.toggleBlocklist", {
+                reason: "<Alt-s> toggles SurfingKeys while disabled"
+            });
             normal.toggleBlocklist();
             self.exit();
             event.sk_stopPropagation = true;
@@ -74,7 +86,17 @@ function createLurk(normal) {
     // Lurk and Disabled should be mutually exclusive.
     self.addEventListener('keydown', function(event) {
         var realTarget = getRealEdit(event);
-        if (!isEditable(realTarget) && event.sk_keyName.length) {
+        var targetIsEditable = isEditable(realTarget);
+        Mode.debugKey(event, "Lurk.keydown", {
+            mode: self.name,
+            key: event.sk_keyName && KeyboardUtils.decodeKeystroke(event.sk_keyName),
+            target: Mode.describeElement(realTarget),
+            targetIsEditable: !!targetIsEditable,
+            reason: targetIsEditable
+                ? "lurk mode passes editable targets to the page"
+                : "lurk mode only handles its explicit wake-up mappings"
+        });
+        if (!targetIsEditable && event.sk_keyName.length) {
             Mode.handleMapKey.call(self, event);
             if (event.sk_stopPropagation) {
                 // keyup event also needs to be suppressed for the key whose keydown has been suppressed.
@@ -93,7 +115,16 @@ function createPassThrough() {
     self.addEventListener('keydown', function(event) {
         // prevent this event to be handled by Surfingkeys' other listeners
         event.sk_suppressed = true;
+        Mode.debugKey(event, "PassThrough.keydown", {
+            mode: self.name,
+            timeout: _timeout,
+            autoExit: !!_autoExit,
+            reason: "pass-through mode intentionally lets the page handle keys except <Esc>"
+        });
         if (Mode.isSpecialKeyOf("<Esc>", event.sk_keyName)) {
+            Mode.debugKey(event, "PassThrough.exit", {
+                reason: "<Esc> exits pass-through mode"
+            });
             self.exit();
             event.sk_stopPropagation = true;
         } else if (_timeout > 0) {
@@ -179,12 +210,30 @@ function createNormal(insert) {
     var _once = false;
     self.addEventListener('keydown', function(event) {
         var realTarget = getRealEdit(event);
-        if (isEditable(realTarget) && event.isTrusted) {
+        var targetIsEditable = isEditable(realTarget);
+        Mode.debugKey(event, "Normal.keydown", {
+            mode: self.name,
+            key: event.sk_keyName && KeyboardUtils.decodeKeystroke(event.sk_keyName),
+            target: Mode.describeElement(realTarget),
+            targetIsEditable: !!targetIsEditable,
+            eventIsTrusted: !!event.isTrusted,
+            editableBodyCare: !!runtime.conf.editableBodyCare
+        });
+        if (targetIsEditable && event.isTrusted) {
+            Mode.debugKey(event, "Normal.editableTarget", {
+                reason: "trusted keydown landed on an editable target; Normal mode avoids stealing ordinary typing"
+            });
             if (Mode.isSpecialKeyOf("<Esc>", event.sk_keyName)) {
+                Mode.debugKey(event, "Normal.editableEsc", {
+                    reason: "<Esc> blurs editable target and exits Insert mode"
+                });
                 realTarget.blur();
                 insert.exit();
             } else {
                 if (runtime.conf.editableBodyCare && realTarget === document.body && event.key !== "i") {
+                    Mode.debugKey(event, "Normal.editableBodyCare", {
+                        reason: "document.body is editable; trying Normal mappings except the Insert-mode key"
+                    });
                     self.statusLine = "Press i to enter Insert mode";
                     runtime.conf.showModeStatus = true;
                     if (event.sk_keyName.length) {
@@ -194,6 +243,9 @@ function createNormal(insert) {
                     event.sk_stopPropagation = (runtime.conf.editableBodyCare
                         && realTarget === document.body && event.key === "i");
                     if (event.sk_stopPropagation) {
+                        Mode.debugKey(event, "Normal.enterEditableBodyInsert", {
+                            reason: "i pressed on editable body; focusing body and stopping page handling"
+                        });
                         self.passFocus(true);
                         realTarget.focus();
                     }
@@ -208,24 +260,39 @@ function createNormal(insert) {
                     }
                     if (stealFocus) {
                         // steal focus from dynamically created input widget
+                        Mode.debugKey(event, "Normal.stealFocusFromNewInput", {
+                            reason: "editable target appears newly created and offscreen; treating key as Normal mapping"
+                        });
                         realTarget.blur();
                         delete n.newlyCreated;
                         Mode.handleMapKey.call(self, event);
                     } else {
                         // keep cursor where it is
+                        Mode.debugKey(event, "Normal.enterInsert", {
+                            reason: "editable target keeps focus; key is passed to Insert/page unless Insert has a mapping"
+                        });
                         insert.enter(realTarget, true);
                     }
 
                 }
             }
         } else if (Mode.isSpecialKeyOf("<Alt-s>", event.sk_keyName)) {
+            Mode.debugKey(event, "Normal.toggleBlocklist", {
+                reason: "<Alt-s> toggles SurfingKeys blocklist"
+            });
             self.toggleBlocklist();
             Mode.finish(self);
             event.sk_stopPropagation = true;
         } else if (event.sk_keyName.length) {
+            Mode.debugKey(event, "Normal.handleMapKey", {
+                reason: "non-editable target with a recognized key; checking Normal mappings"
+            });
             var done = Mode.handleMapKey.call(self, event, () => {
                 // revert to lurk only when Esc is not handled and lurk mode available.
                 if (Mode.isSpecialKeyOf("<Esc>", event.sk_keyName) && _lurk) {
+                    Mode.debugKey(event, "Normal.revertToLurk", {
+                        reason: "<Esc> had no Normal mapping and lurk mode is available"
+                    });
                     self.revertToLurk();
                 }
             });
@@ -233,9 +300,17 @@ function createNormal(insert) {
                 _once = false;
                 self.exit();
             }
+        } else {
+            Mode.debugKey(event, "Normal.ignore", {
+                reason: "KeyboardUtils did not produce a SurfingKeys key name for this event"
+            });
         }
         if (event.sk_stopPropagation) {
             // keyup event also needs to be suppressed for the key whose keydown has been suppressed.
+            Mode.debugKey(event, "Normal.suppressFollowups", {
+                reason: "keydown was stopped; suppressing matching keyup and keypress",
+                keyCode: event.keyCode
+            });
             Mode.suppressKeyUp(event.keyCode);
             Mode.suppressKeyPress(event.keyCode);
         }

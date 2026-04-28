@@ -545,6 +545,7 @@ Some functionalities are also available when you're using original pdf viewer, b
 |:---------------|:-----|:-----|
 | settings.showModeStatus | false | Whether always to show mode status. |
 | settings.showProxyInStatusBar | false | Whether to show proxy info in status bar. |
+| settings.debugKeystrokes | false | Whether to log detailed key event, mode, mapping, and propagation decisions to DevTools console. |
 | settings.richHintsForKeystroke | 500 | Timeout(ms) to show rich hints for keystroke, 0 will disable rich hints. |
 | settings.useLocalMarkdownAPI |  true | Whether to use [chjj/marked](https://github.com/chjj/marked) to parse markdown, otherwise use github markdown API. |
 | settings.focusOnSaved | true | Whether to focus text input after quitting from vim editor. |

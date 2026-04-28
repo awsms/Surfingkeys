@@ -56,6 +56,7 @@ const runtime = (function() {
             defaultLLMProvider: "ollama",
             defaultSearchEngine: "g",
             defaultVoice: "Daniel",
+            debugKeystrokes: false,
             editableBodyCare: true,
             enableAutoFocus: true,
             enableEmojiInsertion: false,

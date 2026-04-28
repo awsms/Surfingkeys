@@ -208,17 +208,43 @@ function createInsert() {
         if (event.key && event.key.charCodeAt(0) > 127) {
             // IME is opened.
             event.sk_suppressed = true;
+            Mode.debugKey(event, "Insert.ime", {
+                mode: self.name,
+                key: event.key,
+                reason: "IME/non-ASCII key is left to the page"
+            });
             return;
         }
         // prevent this event to be handled by Surfingkeys' other listeners
         var realTarget = getRealEdit(event);
-        if (!isEditable(realTarget)) {
+        var targetIsEditable = isEditable(realTarget);
+        Mode.debugKey(event, "Insert.keydown", {
+            mode: self.name,
+            key: event.sk_keyName && KeyboardUtils.decodeKeystroke(event.sk_keyName),
+            target: Mode.describeElement(realTarget),
+            targetIsEditable: !!targetIsEditable,
+            mapNode: self.map_node === self.mappings ? "root" : "partial",
+            pendingMap: !!self.pendingMap
+        });
+        if (!targetIsEditable) {
+            Mode.debugKey(event, "Insert.exit", {
+                reason: "current target is no longer editable"
+            });
             self.exit();
         } else if (event.sk_keyName.length) {
+            Mode.debugKey(event, "Insert.handleMapKey", {
+                reason: "editable target has a recognized key; checking Insert mappings"
+            });
             Mode.handleMapKey.call(self, event, function(last) {
                 // for insert mode to insert unmapped chars with preceding chars same as some mapkeys
                 // such as, to insert `,m` in case of mapkey `,,` defined.
                 var pw = last.getPrefixWord();
+                Mode.debugKey(event, "Insert.noMatch", {
+                    prefixWord: KeyboardUtils.decodeKeystroke(pw),
+                    reason: pw
+                        ? "unmatched key followed an Insert mapping prefix; reinserting prefix text"
+                        : "key is not an Insert mapping, so the page/input can handle it"
+                });
                 if (pw) {
                     var elm = getRealEdit(), str = elm.value, pos = elm.selectionStart;
                     if (str !== undefined && pos !== undefined) {
@@ -247,8 +273,15 @@ function createInsert() {
                     }
                 }
             });
+        } else {
+            Mode.debugKey(event, "Insert.ignore", {
+                reason: "KeyboardUtils did not produce a SurfingKeys key name for this event"
+            });
         }
         event.sk_suppressed = true;
+        Mode.debugKey(event, "Insert.suppressOtherModes", {
+            reason: "Insert handled the SurfingKeys mode traversal; page default is only prevented if a mapping set sk_stopPropagation"
+        });
     });
     self.addEventListener('focus', function(event) {
         var realTarget = getRealEdit(event);
