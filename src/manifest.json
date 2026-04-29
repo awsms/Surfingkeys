@@ -13,9 +13,25 @@
             "description": "Restart this extenstion."
         },
         "previousTab": {
+            "suggested_key": "Ctrl+Shift+Tab",
+            "description": "Go to the previous tab."
+        },
+        "previousTabPageUp": {
+            "suggested_key": "Ctrl+PageUp",
+            "description": "Go to the previous tab."
+        },
+        "previousTabShiftE": {
             "description": "Go to the previous tab."
         },
         "nextTab": {
+            "suggested_key": "Ctrl+Tab",
+            "description": "Go to the next tab."
+        },
+        "nextTabPageDown": {
+            "suggested_key": "Ctrl+PageDown",
+            "description": "Go to the next tab."
+        },
+        "nextTabShiftR": {
             "description": "Go to the next tab."
         },
         "closeTab": {

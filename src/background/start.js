@@ -501,9 +501,13 @@ function start(browser) {
                 });
                 break;
             case 'previousTab':
+            case 'previousTabPageUp':
+            case 'previousTabShiftE':
             case 'nextTab':
+            case 'nextTabPageDown':
+            case 'nextTabShiftR':
                 getActiveTab(function(tab) {
-                    var index = (command === 'previousTab') ? tab.index - 1 : tab.index + 1;
+                    var index = (command === 'previousTab' || command === 'previousTabPageUp' || command === 'previousTabShiftE') ? tab.index - 1 : tab.index + 1;
                     chrome.tabs.query({ windowId: tab.windowId }, function(tabs) {
                         index = ((index % tabs.length) + tabs.length) % tabs.length;
                         chrome.tabs.update(tabs[index].id, { active: true });
