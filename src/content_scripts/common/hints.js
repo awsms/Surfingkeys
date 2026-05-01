@@ -373,8 +373,10 @@ div.hint-scrollable {
                 const modKey = (navigator.platform.indexOf("Mac") !== -1) ? "metaKey" : "ctrlKey";
                 mouseEventModifiers[modKey] = true;
             }
+            const href = getHref(element);
             const cookieStoreId = _containerCookieStoreId;
             self.clearContainer();
+            const shouldOpenInBackground = tabbed && href && !mouseEventModifiers.shiftKey;
             flashPressedLink(element,() => {
                 if (cookieStoreId) {
                     RUNTIME("openLink", {
@@ -383,15 +385,18 @@ div.hint-scrollable {
                             active: active || shiftKey,
                             cookieStoreId: cookieStoreId
                         },
-                        url: getHref(element)
+                        url: href
                     });
-                } else if (tabbed && getBrowserName().startsWith("Safari")) {
+                } else if (href && (shouldOpenInBackground || (tabbed && getBrowserName().startsWith("Safari")))) {
+                    // Chromium may promote synthetic background-tab clicks to
+                    // foreground tabs on JS-driven links. Safari also needs the
+                    // extension tab API for tabbed hint opens.
                     RUNTIME("openLink", {
                         tab: {
                             tabbed: tabbed,
-                            active: mouseEventModifiers.shiftKey
+                            active: !!mouseEventModifiers.shiftKey
                         },
-                        url: getHref(element)
+                        url: href
                     });
                 } else {
                     self.mouseoutLastElement();
