@@ -559,12 +559,14 @@ div.hint-scrollable {
     }
 
     function getHref(elm) {
-        var href = elm.href;
-        while (!href && elm) {
+        while (elm) {
+            var href = elm.href;
+            if (href) {
+                return href;
+            }
             elm = elm.parentElement;
-            href = elm.href;
         }
-        return href;
+        return "";
     }
 
 
