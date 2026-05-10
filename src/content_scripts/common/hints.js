@@ -791,10 +791,6 @@ div.hint-scrollable {
             if (lTop === lastTop && Math.abs(left - lastLeft) < minHintGap) {
                 const delta = minHintGap - Math.abs(left - lastLeft);
                 left = nudgeHintLeft(left, left >= lastLeft ? delta : -delta);
-            } else if (left === lastLeft && Math.abs(lTop - lastTop) < minHintGap) {
-                // Keep the hint on its target row. Vertical nudges accumulate on
-                // dense tables and make labels appear beside the wrong element.
-                left = nudgeHintLeft(left, minHintGap);
             }
             link.style.top = lTop + "px";
             link.style.left = left + "px";

@@ -150,6 +150,7 @@ describe('markdown viewer', () => {
             denseHints.forEach((hint) => {
                 const targetIndex = Number(hint.link.getAttribute("href").match(/\/(\d+)$/)[1]);
                 expect(hint.style.top).toBe(`${18 * targetIndex}px`);
+                expect(hint.style.left).toBe("50px");
             });
         } finally {
             HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
