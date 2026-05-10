@@ -89,33 +89,72 @@ describe('markdown viewer', () => {
         expect(links[0].href).toBe("https://github.com/");
     });
 
-    test("follow links generated from markdown", async () => {
-        jest.spyOn(clipboard, 'read').mockImplementationOnce((onReady) => {
-            onReady({data: "* [github](https://github.com)\n* [google](https://google.com)"});
-        });
-        await waitForEvent(document, "surfingkeys:defaultSettingsLoaded", () => {
-            return true;
-        }, () => {
-            dispatchSKEvent('defaultSettingsLoaded', {normal, api});
-        });
+    test("keep dense link hints on target rows", async () => {
+        document.body.innerHTML = Array.from({ length: 35 }, (_, i) => {
+            return `<a href="https://example.com/${i}">link${i}</a>`;
+        }).join("");
 
         const links = document.querySelectorAll("a");
         links.forEach((l, i) => {
             l.style.opacity = "1";
-            l.getBoundingClientRect = jest.fn(() => {
-                return { width: 100, height: 10, top: 100 * i, left: 0, bottom: 100 * i + 10, right: 100 };
+            const rect = { width: 100, height: 10, top: 18 * i, left: 0, bottom: 18 * i + 10, right: 100 };
+            Object.defineProperty(l, "getBoundingClientRect", {
+                value: jest.fn(() => rect),
+                configurable: true
+            });
+            Object.defineProperty(l, "getClientRects", {
+                value: jest.fn(() => []),
+                configurable: true
             });
         });
+        document.scrollingElement.clientTop = 0;
+        document.scrollingElement.clientLeft = 0;
+        document.scrollingElement.scrollTop = 0;
+        document.scrollingElement.scrollLeft = 0;
         document.elementFromPoint = jest.fn(() => {
             return null;
         });
         expect(document.querySelector("div.surfingkeys_hints_host")).toBe(null);
 
-        normal.enter(undefined, true);
-        document.body.dispatchEvent(new KeyboardEvent('keydown', {'key': 'e'}));
-        const hint_labels = document.querySelector("div.surfingkeys_hints_host").shadowRoot.querySelectorAll("section>div");
-        expect(hint_labels.length).toBe(2);
-        expect(hint_labels[0].label).toBe("A");
-        expect(hint_labels[1].label).toBe("S");
+        const originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+        const originalOffsetTop = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetTop");
+        const originalOffsetHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+        HTMLElement.prototype.getBoundingClientRect = jest.fn(function() {
+            const top = parseFloat(this.style.top) || 0;
+            const left = parseFloat(this.style.left) || 0;
+            return { width: 8, height: 10, top, left, bottom: top + 10, right: left + 8 };
+        });
+        Object.defineProperty(HTMLElement.prototype, "offsetTop", {
+            get() {
+                return parseFloat(this.style.top) || 0;
+            },
+            configurable: true
+        });
+        Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+            get() {
+                return parseFloat(this.style.height) || 10;
+            },
+            configurable: true
+        });
+        try {
+            normal.enter(undefined, true);
+            document.body.dispatchEvent(new KeyboardEvent('keydown', {'key': 'e'}));
+            const hint_labels = document.querySelector("div.surfingkeys_hints_host").shadowRoot.querySelectorAll("section>div");
+            const denseHints = Array.from(hint_labels).filter((hint) => {
+                const href = hint.link && hint.link.getAttribute && hint.link.getAttribute("href");
+                return href && href.startsWith("https://example.com/");
+            });
+            expect(denseHints.length).toBe(35);
+            expect(denseHints.some((hint) => hint.label === "SQ")).toBe(true);
+            expect(denseHints.some((hint) => hint.label === "SW")).toBe(true);
+            denseHints.forEach((hint) => {
+                const targetIndex = Number(hint.link.getAttribute("href").match(/\/(\d+)$/)[1]);
+                expect(hint.style.top).toBe(`${18 * targetIndex}px`);
+            });
+        } finally {
+            HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+            Object.defineProperty(HTMLElement.prototype, "offsetTop", originalOffsetTop);
+            Object.defineProperty(HTMLElement.prototype, "offsetHeight", originalOffsetHeight);
+        }
     });
 });

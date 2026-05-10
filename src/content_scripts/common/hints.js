@@ -745,6 +745,34 @@ div.hint-scrollable {
         }
 
         let lastTop = -1, lastLeft = -1;
+        const minHintGap = 20;
+        function getHintLeftBounds() {
+            return {
+                min: window.pageXOffset,
+                max: window.pageXOffset + window.innerWidth - 32
+            };
+        }
+        function clampHintLeft(left) {
+            const bounds = getHintLeftBounds();
+            if (left < bounds.min) {
+                return bounds.min;
+            } else if (left > bounds.max) {
+                return bounds.max;
+            }
+            return left;
+        }
+        function nudgeHintLeft(left, delta) {
+            const bounds = getHintLeftBounds();
+            const shifted = left + delta;
+            if (shifted >= bounds.min && shifted <= bounds.max) {
+                return shifted;
+            }
+            const fallback = left - delta;
+            if (fallback >= bounds.min && fallback <= bounds.max) {
+                return fallback;
+            }
+            return clampHintLeft(left);
+        }
         var links = elements.map(function(elm, i) {
             var r = getRealRect(elm),
                 z = getZIndex(elm);
@@ -756,18 +784,17 @@ div.hint-scrollable {
             } else {
                 left = window.pageXOffset + r.left - bof.left + width / 2;
             }
-            if (left < window.pageXOffset) {
-                left = window.pageXOffset;
-            } else if (left + 32 > window.pageXOffset + window.innerWidth) {
-                left = window.pageXOffset + window.innerWidth - 32;
-            }
+            left = clampHintLeft(left);
             var link = createElementWithContent('div', hintLabels[i]);
             if (elm.dataset.hint_scrollable) { link.classList.add('hint-scrollable'); }
             let lTop = Math.max(r.top + window.pageYOffset - bof.top, 0);
-            if (lTop === lastTop && Math.abs(left - lastLeft) < 20) {
-                left += 20 - Math.abs(left - lastLeft);
-            } else if (left === lastLeft && Math.abs(lTop - lastTop) < 20) {
-                lTop += 20 - Math.abs(lTop - lastTop);
+            if (lTop === lastTop && Math.abs(left - lastLeft) < minHintGap) {
+                const delta = minHintGap - Math.abs(left - lastLeft);
+                left = nudgeHintLeft(left, left >= lastLeft ? delta : -delta);
+            } else if (left === lastLeft && Math.abs(lTop - lastTop) < minHintGap) {
+                // Keep the hint on its target row. Vertical nudges accumulate on
+                // dense tables and make labels appear beside the wrong element.
+                left = nudgeHintLeft(left, minHintGap);
             }
             link.style.top = lTop + "px";
             link.style.left = left + "px";
